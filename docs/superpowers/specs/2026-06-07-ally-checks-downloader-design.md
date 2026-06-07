@@ -205,7 +205,13 @@ so "analyze the image" reduces to "read the payee line."
     images (optionally keep an archive). End state on disk is the dataset.
   - **Cross-check:** optionally verify the vision-read amount/check number
     against the page text already captured.
-  - Open design questions for the M4 spec: exact payee-strip crop region (tune
-    against the real downloaded images — checks have a roughly standard layout),
-    verification UX, final output format, image-retention policy, and
-    `ANTHROPIC_API_KEY` handling for the standalone pipeline.
+  - **Validated crop region (2026-06-07):** on Ally's 1176×512 check-front
+    image, `magick <front> -crop 780x95+80+150 +repage <strip>` isolates the
+    "Pay to the order of" line. Confirmed against checks #1769 and #1776: the
+    strip captures the payee name and excludes the payer address (top), the
+    signature, and the MICR routing/account line (bottom). Handwritten cursive
+    read accurately via vision. Coordinates assume the consistent Ally layout;
+    re-confirm if Ally changes image dimensions.
+  - Open design questions for the M4 spec: verification UX, final output format
+    (CSV/JSON), image-retention policy, and `ANTHROPIC_API_KEY` handling for the
+    standalone pipeline.
