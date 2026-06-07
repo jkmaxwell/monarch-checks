@@ -1,0 +1,10 @@
+{
+  "name": "ally-checks-harness",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CDP harness to inject and run src/ally-checks.js against a live Dia/Chromium tab",
+  "type": "commonjs",
+  "dependencies": {
+    "puppeteer-core": "^24.0.0"
+  }
+}
