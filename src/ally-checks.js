@@ -76,13 +76,18 @@
     });
     if (btn && btn.getAttribute('aria-expanded') === 'false') btn.click();
 
+    // Ally renders TWO elements per side: a hidden placeholder (empty src,
+    // naturalWidth 0) and the real loaded image (blob: src). Scan all matches
+    // and pick the loaded one rather than the first.
     const ready = (el) =>
       el && el.complete && el.naturalWidth > 0 && el.src.startsWith('blob:');
+    const pickLoaded = (testid) =>
+      [...document.querySelectorAll(`img[data-testid="${testid}"]`)].find(ready);
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      const front = document.querySelector('img[data-testid="frontCheckImage"]');
-      const back = document.querySelector('img[data-testid="backCheckImage"]');
-      if (ready(front) && ready(back)) return { front, back };
+      const front = pickLoaded('frontCheckImage');
+      const back = pickLoaded('backCheckImage');
+      if (front && back) return { front, back };
       console.log('… still loading check images');
       await sleep(2000);
     }
