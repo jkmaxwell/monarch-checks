@@ -146,18 +146,18 @@ skipped** — it does not abort the run.
 
 ## Testing
 
-A snippet that runs against a live authenticated bank page cannot have a
-conventional automated end-to-end suite. Strategy:
+For v1 the priority is simply getting a working snippet — **no formal unit-test
+suite**. Verification is manual against the live page:
 
-- **Pure helpers are unit-testable.** Extract `parseAmount`, `parseDate`, and
-  `buildFilename` as pure functions and test them with real sample strings:
-  - `parseAmount("−$250.00")` → `"250.00"`
-  - `parseDate("Jun 2, 2026 11:12 pm ET")` → `"2026-06-02"`
-  - `buildFilename(...)` → `"2026-06-02_check-1776_250.00_front.png"`
-- **Manual acceptance:** run on a known check (e.g. #1776) with `MAX_CHECKS=1`;
-  confirm two correctly-named full-resolution images land in Downloads and the
-  metadata table is accurate. Then a small batch (`MAX_CHECKS=3`) including one
-  "View More" pagination, confirming the aggregated JSON.
+- Run on a known check (e.g. #1776) with `MAX_CHECKS=1`; confirm two
+  correctly-named full-resolution images land in Downloads and the metadata table
+  is accurate.
+- Then a small batch (`MAX_CHECKS=3`) including one "View More" pagination,
+  confirming the aggregated JSON.
+
+(Parsing helpers like `parseAmount`/`parseDate`/`buildFilename` will still be
+written as small standalone functions so they're easy to test later if desired —
+but writing those tests is deferred.)
 
 ## Unknowns to confirm during implementation
 
