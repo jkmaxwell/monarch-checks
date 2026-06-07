@@ -147,17 +147,25 @@
     return gone();
   }
 
+  // Count ALL transaction rows (every transaction has a description button),
+  // not just checks — used to detect that "View More" actually loaded a new page.
+  function countTransactionRows() {
+    return document.querySelectorAll('[data-testid="transaction-history-desc"]').length;
+  }
+
   // Click "View More" and wait for additional rows to load. Returns true if more
   // rows appeared, false if no button or no growth within the timeout.
+  // Measures total transaction rows (not check rows): a page may load only
+  // non-check transactions, which still means there is more history to walk.
   async function clickViewMore() {
     const btn = document.querySelector('[data-testid="viewMoreButton"]');
     if (!btn) return false;
-    const before = findCheckRows().length;
+    const before = countTransactionRows();
     btn.click();
     const deadline = Date.now() + 15000;
     while (Date.now() < deadline) {
       await sleep(1000);
-      if (findCheckRows().length > before) return true;
+      if (countTransactionRows() > before) return true;
     }
     return false;
   }
@@ -212,6 +220,16 @@
       try {
         if (!(await openRow(next))) { console.warn(`  could not open #${next.checkNumber}, skipping`); continue; }
         const meta = readModalMetadata();
+        if (!meta) { console.warn(`  modal vanished for #${next.checkNumber}, skipping`); continue; }
+        // Guard against missing page text so filenames never contain "null".
+        if (!meta.checkNumber) {
+          console.warn(`  no check number read for row #${next.checkNumber}; using fallback`);
+          meta.checkNumber = `unknown-${records.length}`;
+        }
+        if (!meta.amount) {
+          console.warn(`  no amount read for check #${meta.checkNumber}; using fallback`);
+          meta.amount = 'unknown-amount';
+        }
         const imgs = await expandAndWaitForImages(cfg.CHECK_TIMEOUT_MS);
         if (!imgs) {
           console.warn(`  images timed out for #${next.checkNumber}, skipping`);
