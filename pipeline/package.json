@@ -9,6 +9,6 @@
     "ally-cleanup": "cleanup.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.69.0"
+    "@anthropic-ai/sdk": "^0.102.0"
   }
 }

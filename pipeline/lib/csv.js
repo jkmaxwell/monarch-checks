@@ -2,7 +2,7 @@
 // the in-browser "Export verified" button builds identical CSV client-side.
 function csvEscape(v) {
   const s = String(v == null ? '' : v);
-  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 
 function toCsv(records) {

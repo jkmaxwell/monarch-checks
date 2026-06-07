@@ -59,6 +59,7 @@ async function extractRecipient(stripPath) {
     ],
   });
   const textBlock = (resp.content || []).find((b) => b.type === 'text');
+  if (!textBlock) throw new Error('API returned no text block');
   const parsed = JSON.parse(textBlock.text);
   return {
     recipient: String(parsed.recipient || '').trim(),
