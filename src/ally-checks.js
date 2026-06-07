@@ -106,11 +106,53 @@
     return filename;
   }
 
+  // ===== LIST / NAVIGATION =====
+  // All currently-loaded "Check Paid #<n>" rows, in list order.
+  function findCheckRows() {
+    return [...document.querySelectorAll('[data-testid="transaction-history-desc"]')]
+      .map((btn) => {
+        const m = btn.textContent.trim().match(/Check Paid #(\d+)/);
+        return m ? { btn, checkNumber: m[1] } : null;
+      })
+      .filter(Boolean);
+  }
+
+  // Click a row and wait for its detail modal to appear.
+  async function openRow(row) {
+    row.btn.click();
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+      await sleep(500);
+      if (document.querySelector('[data-testid="transaction-detail-modal"]')) return true;
+    }
+    return false;
+  }
+
+  // Close the detail modal: Escape first, close-button fallback.
+  // NOTE (spec unknown): confirm the close control against the live page.
+  async function closeModal() {
+    const gone = () => !document.querySelector('[data-testid="transaction-detail-modal"]');
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true })
+    );
+    await sleep(600);
+    if (gone()) return true;
+    const closeBtn = document.querySelector(
+      '[data-testid="transaction-detail-modal"] [aria-label="Close"], button[aria-label="Close"]'
+    );
+    if (closeBtn) {
+      closeBtn.click();
+      await sleep(600);
+    }
+    return gone();
+  }
+
   // ===== EXPOSURE (grows in later tasks) =====
   window.allyChecks = {
     CONFIG, parseAmount, parseDate, sanitize, buildFilename,
     sleep, getFieldByLabel, readModalMetadata,
     expandAndWaitForImages, downloadSide,
+    findCheckRows, openRow, closeModal,
   };
   console.log('allyChecks loaded. Helpers available; run() added in a later task.');
 })();
