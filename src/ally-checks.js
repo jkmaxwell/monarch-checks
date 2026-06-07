@@ -133,8 +133,8 @@
     return false;
   }
 
-  // Close the detail modal: Escape first, close-button fallback.
-  // NOTE (spec unknown): confirm the close control against the live page.
+  // Close the detail modal: Escape first (confirmed to work live), then the
+  // close button (data-testid="close-modal") as a fallback.
   async function closeModal() {
     const gone = () => !document.querySelector('[data-testid="transaction-detail-modal"]');
     document.dispatchEvent(
@@ -143,7 +143,7 @@
     await sleep(600);
     if (gone()) return true;
     const closeBtn = document.querySelector(
-      '[data-testid="transaction-detail-modal"] [aria-label="Close"], button[aria-label="Close"]'
+      '[data-testid="close-modal"], button[aria-label="close" i]'
     );
     if (closeBtn) {
       closeBtn.click();
