@@ -175,13 +175,74 @@
     URL.revokeObjectURL(url);
   }
 
+  // ===== WALKER =====
+  async function run(overrides = {}) {
+    const cfg = { ...CONFIG, ...overrides };
+    if (!findCheckRows().length && !document.querySelector('[data-testid="viewMoreButton"]')) {
+      alert('No check rows or "View More" found. Open the account transaction list first.');
+      return [];
+    }
+
+    const records = [];
+    const processed = new Set();
+    let skipped = 0;
+    let pageClicks = 0;
+
+    while (records.length < cfg.MAX_CHECKS) {
+      const next = findCheckRows().find((r) => !processed.has(r.checkNumber));
+
+      if (!next) {
+        if (pageClicks >= cfg.MAX_PAGES) { console.log('Reached MAX_PAGES.'); break; }
+        console.log('Loading more transactions…');
+        const grew = await clickViewMore();
+        pageClicks += 1;
+        if (!grew) { console.log('No more transactions.'); break; }
+        continue;
+      }
+
+      processed.add(next.checkNumber);
+
+      if (skipped < cfg.START_INDEX) {
+        skipped += 1;
+        console.log(`Skipping check #${next.checkNumber} (${skipped}/${cfg.START_INDEX})`);
+        continue;
+      }
+
+      console.log(`Check ${records.length + 1}/${cfg.MAX_CHECKS}: #${next.checkNumber} — opening…`);
+      try {
+        if (!(await openRow(next))) { console.warn(`  could not open #${next.checkNumber}, skipping`); continue; }
+        const meta = readModalMetadata();
+        const imgs = await expandAndWaitForImages(cfg.CHECK_TIMEOUT_MS);
+        if (!imgs) {
+          console.warn(`  images timed out for #${next.checkNumber}, skipping`);
+          await closeModal();
+          continue;
+        }
+        meta.frontFile = await downloadSide(imgs.front, meta, 'front');
+        meta.backFile = await downloadSide(imgs.back, meta, 'back');
+        records.push(meta);
+        console.log(`  downloaded ${meta.frontFile} + back`);
+      } catch (err) {
+        console.error(`  error on #${next.checkNumber}:`, err);
+      } finally {
+        await closeModal();
+        await sleep(cfg.BETWEEN_CHECKS_MS);
+      }
+    }
+
+    console.log(`Done. Downloaded ${records.length} checks.`);
+    console.table(records);
+    if (records.length) downloadJson(records);
+    return records;
+  }
+
   // ===== EXPOSURE (grows in later tasks) =====
   window.allyChecks = {
     CONFIG, parseAmount, parseDate, sanitize, buildFilename,
     sleep, getFieldByLabel, readModalMetadata,
     expandAndWaitForImages, downloadSide,
     findCheckRows, openRow, closeModal,
-    clickViewMore, downloadJson,
+    clickViewMore, downloadJson, run,
   };
-  console.log('allyChecks loaded. Helpers available; run() added in a later task.');
+  console.log('allyChecks loaded. Start with:  await allyChecks.run()  (or allyChecks.run({ MAX_CHECKS: 1 }))');
 })();
