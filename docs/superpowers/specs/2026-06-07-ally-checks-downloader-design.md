@@ -166,11 +166,46 @@ but writing those tests is deferred.)
   `aria-label="Close"` or a `data-testid`). Confirm against the live page. Not a
   blocker for this spec.
 
+## Reframed end goal: data, not images
+
+Confirmed direction (2026-06-07): **the deliverable is structured data, not a
+folder of images.** Images are an intermediate artifact. The full pipeline:
+
+```
+download image → extract every field we can → user verifies the gaps → emit clean data → delete images
+```
+
+Date, check number, and amount are already structured data from the page text
+(no OCR). The **recipient** is the only field that requires reading the image —
+so "analyze the image" reduces to "read the payee line."
+
 ## Roadmap (not in this spec)
 
 - **M2:** wrap the working snippet as a one-click bookmarklet.
 - **M3:** full Chrome extension — per-check Download button, batch walker with
   **persistent cross-run tracking** (localStorage/IndexedDB, true resume/dedup),
   accumulating metadata file (CSV/JSON), settings UI.
-- **M4:** OCR the **recipient** from the front image (local Tesseract.js or a
-  vision API — TBD), and cross-check amount/check number against page text.
+- **M4 (the data pipeline):** extract the **recipient** and emit a clean dataset.
+  - **Recipient extraction (decided): cloud vision (Claude API) on a
+    locally-cropped payee strip.** Crop just the "Pay to the order of" band from
+    the check-front image locally and send only that strip to the vision API —
+    the signature, account number, and MICR routing line never leave the machine.
+    Privacy basis: the commercial Anthropic API does not train on inputs by
+    default and retains them only briefly for trust & safety; cropping minimizes
+    what is exposed in that window. Use model `claude-opus-4-8` (vision) unless a
+    cheaper tier proves sufficient.
+  - **Future: support a fully-local mode** (on-device OCR such as Tesseract, or
+    crop-and-manually-type) so nothing leaves the machine at all, for users who
+    won't send any check imagery to a third party. Deferred, but the recipient-
+    extraction step should be designed as a swappable backend to allow it.
+  - **Verification:** surface low-confidence / missing fields for the user to
+    confirm or correct before the data is finalized (UX TBD — CLI prompts, an
+    HTML review page, or an editable CSV).
+  - **Cleanup:** once data is finalized and verified, delete the downloaded
+    images (optionally keep an archive). End state on disk is the dataset.
+  - **Cross-check:** optionally verify the vision-read amount/check number
+    against the page text already captured.
+  - Open design questions for the M4 spec: exact payee-strip crop region (tune
+    against the real downloaded images — checks have a roughly standard layout),
+    verification UX, final output format, image-retention policy, and
+    `ANTHROPIC_API_KEY` handling for the standalone pipeline.
