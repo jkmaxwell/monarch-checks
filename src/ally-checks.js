@@ -67,14 +67,16 @@
   }
 
   // ===== PER-CHECK IMAGE FLOW =====
-  // Click the "View check images" accordion (if collapsed) and poll until both
-  // blob images are fully loaded. Returns {front, back} or null on timeout.
+  // Expand the "View check images" accordion and poll until both blob images
+  // are fully loaded. Returns {front, back} or null on timeout.
   async function expandAndWaitForImages(timeoutMs) {
-    const btn = [...document.querySelectorAll('button')].find((b) => {
-      const h = b.querySelector('h2');
-      return h && h.textContent.trim() === 'View check images';
-    });
-    if (btn && btn.getAttribute('aria-expanded') === 'false') btn.click();
+    // The accordion button may not exist the instant the modal opens, so find
+    // and click it INSIDE the loop (idempotent — only clicks while collapsed).
+    const findExpandBtn = () =>
+      [...document.querySelectorAll('button')].find((b) => {
+        const h = b.querySelector('h2');
+        return h && h.textContent.trim() === 'View check images';
+      });
 
     // Ally renders TWO elements per side: a hidden placeholder (empty src,
     // naturalWidth 0) and the real loaded image (blob: src). Scan all matches
@@ -85,6 +87,8 @@
       [...document.querySelectorAll(`img[data-testid="${testid}"]`)].find(ready);
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
+      const btn = findExpandBtn();
+      if (btn && btn.getAttribute('aria-expanded') === 'false') btn.click();
       const front = pickLoaded('frontCheckImage');
       const back = pickLoaded('backCheckImage');
       if (front && back) return { front, back };
