@@ -228,6 +228,14 @@
       console.log(`Check ${records.length + 1}/${cfg.MAX_CHECKS}: #${next.checkNumber} — opening…`);
       try {
         if (!(await openRow(next))) { console.warn(`  could not open #${next.checkNumber}, skipping`); continue; }
+        const imgs = await expandAndWaitForImages(cfg.CHECK_TIMEOUT_MS);
+        if (!imgs) {
+          console.warn(`  images timed out for #${next.checkNumber}, skipping`);
+          await closeModal();
+          continue;
+        }
+        // Read metadata AFTER images load — by then the modal is fully rendered,
+        // so the field rows are reliably present.
         const meta = readModalMetadata();
         if (!meta) { console.warn(`  modal vanished for #${next.checkNumber}, skipping`); continue; }
         // Guard against missing page text so filenames never contain "null".
@@ -238,12 +246,6 @@
         if (!meta.amount) {
           console.warn(`  no amount read for check #${meta.checkNumber}; using fallback`);
           meta.amount = 'unknown-amount';
-        }
-        const imgs = await expandAndWaitForImages(cfg.CHECK_TIMEOUT_MS);
-        if (!imgs) {
-          console.warn(`  images timed out for #${next.checkNumber}, skipping`);
-          await closeModal();
-          continue;
         }
         meta.frontFile = await downloadSide(imgs.front, meta, 'front');
         meta.backFile = await downloadSide(imgs.back, meta, 'back');
