@@ -66,10 +66,51 @@
     };
   }
 
+  // ===== PER-CHECK IMAGE FLOW =====
+  // Click the "View check images" accordion (if collapsed) and poll until both
+  // blob images are fully loaded. Returns {front, back} or null on timeout.
+  async function expandAndWaitForImages(timeoutMs) {
+    const btn = [...document.querySelectorAll('button')].find((b) => {
+      const h = b.querySelector('h2');
+      return h && h.textContent.trim() === 'View check images';
+    });
+    if (btn && btn.getAttribute('aria-expanded') === 'false') btn.click();
+
+    const ready = (el) =>
+      el && el.complete && el.naturalWidth > 0 && el.src.startsWith('blob:');
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const front = document.querySelector('img[data-testid="frontCheckImage"]');
+      const back = document.querySelector('img[data-testid="backCheckImage"]');
+      if (ready(front) && ready(back)) return { front, back };
+      console.log('… still loading check images');
+      await sleep(2000);
+    }
+    return null;
+  }
+
+  // Fetch one blob image and trigger a download. Returns the filename used.
+  async function downloadSide(img, meta, side) {
+    const resp = await fetch(img.src);
+    const blob = await resp.blob();
+    const ext = blob.type === 'image/jpeg' ? 'jpg' : 'png';
+    const filename = buildFilename(meta.date, meta.checkNumber, meta.amount, side, ext);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    return filename;
+  }
+
   // ===== EXPOSURE (grows in later tasks) =====
   window.allyChecks = {
     CONFIG, parseAmount, parseDate, sanitize, buildFilename,
     sleep, getFieldByLabel, readModalMetadata,
+    expandAndWaitForImages, downloadSide,
   };
   console.log('allyChecks loaded. Helpers available; run() added in a later task.');
 })();
