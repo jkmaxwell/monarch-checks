@@ -12,6 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 
+require('./lib/env').loadEnv(); // pick up ANTHROPIC_API_KEY from a gitignored .env
 const { cropPayee } = require('./lib/crop');
 const { discover } = require('./lib/discover');
 const extract = require('./lib/extract');
