@@ -4,3 +4,4 @@ downloads/
 .DS_Store
 pipeline/out/
 pipeline/strips/
+.env
