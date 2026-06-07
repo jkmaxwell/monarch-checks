@@ -1,0 +1,14 @@
+{
+  "name": "ally-checks-pipeline",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Turn downloaded Ally check images into a verified {date, check#, amount, recipient} dataset",
+  "type": "commonjs",
+  "bin": {
+    "ally-build-review": "build-review.js",
+    "ally-cleanup": "cleanup.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.69.0"
+  }
+}
