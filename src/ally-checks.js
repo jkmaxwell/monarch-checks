@@ -98,11 +98,20 @@
     return null;
   }
 
+  // Detect image type from the actual bytes — Ally's blob MIME type is
+  // unreliable (it reports check JPEGs as image/png). Falls back to blob.type.
+  async function detectExt(blob) {
+    const head = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
+    if (head[0] === 0xff && head[1] === 0xd8) return 'jpg';
+    if (head[0] === 0x89 && head[1] === 0x50) return 'png';
+    return blob.type === 'image/png' ? 'png' : 'jpg';
+  }
+
   // Fetch one blob image and trigger a download. Returns the filename used.
   async function downloadSide(img, meta, side) {
     const resp = await fetch(img.src);
     const blob = await resp.blob();
-    const ext = blob.type === 'image/jpeg' ? 'jpg' : 'png';
+    const ext = await detectExt(blob);
     const filename = buildFilename(meta.date, meta.checkNumber, meta.amount, side, ext);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
