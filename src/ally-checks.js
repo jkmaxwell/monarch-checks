@@ -147,12 +147,41 @@
     return gone();
   }
 
+  // Click "View More" and wait for additional rows to load. Returns true if more
+  // rows appeared, false if no button or no growth within the timeout.
+  async function clickViewMore() {
+    const btn = document.querySelector('[data-testid="viewMoreButton"]');
+    if (!btn) return false;
+    const before = findCheckRows().length;
+    btn.click();
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+      await sleep(1000);
+      if (findCheckRows().length > before) return true;
+    }
+    return false;
+  }
+
+  // ===== AGGREGATION =====
+  function downloadJson(records) {
+    const blob = new Blob([JSON.stringify(records, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'ally-checks-metadata.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   // ===== EXPOSURE (grows in later tasks) =====
   window.allyChecks = {
     CONFIG, parseAmount, parseDate, sanitize, buildFilename,
     sleep, getFieldByLabel, readModalMetadata,
     expandAndWaitForImages, downloadSide,
     findCheckRows, openRow, closeModal,
+    clickViewMore, downloadJson,
   };
   console.log('allyChecks loaded. Helpers available; run() added in a later task.');
 })();
