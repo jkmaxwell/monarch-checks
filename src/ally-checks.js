@@ -36,7 +36,40 @@
     return `${sanitize(date)}_check-${sanitize(number)}_${sanitize(amount)}_${side}.${ext}`;
   }
 
+  // ===== ASYNC / DOM UTILITIES =====
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // Within `root`, find the value next to a bold heading label like "Amount:".
+  function getFieldByLabel(root, label) {
+    const els = [...root.querySelectorAll('span, div')];
+    const labelEl = els.find((el) => el.textContent.trim() === label);
+    if (!labelEl) return null;
+    const valueEl = labelEl.nextElementSibling;
+    return valueEl ? valueEl.textContent.trim() : null;
+  }
+
+  // ===== METADATA =====
+  function readModalMetadata() {
+    const modal = document.querySelector('[data-testid="transaction-detail-modal"]');
+    if (!modal) return null;
+    const checkNumber = getFieldByLabel(modal, 'Check Number:');
+    const postedDateTime = getFieldByLabel(modal, 'Posted:');
+    const amountRaw = getFieldByLabel(modal, 'Amount:');
+    return {
+      checkNumber,
+      amount: amountRaw ? parseAmount(amountRaw) : null,
+      date: postedDateTime ? parseDate(postedDateTime) : 'unknown-date',
+      postedDateTime,
+      description: getFieldByLabel(modal, 'Description:'),
+      type: getFieldByLabel(modal, 'Type:'),
+      recipient: null,
+    };
+  }
+
   // ===== EXPOSURE (grows in later tasks) =====
-  window.allyChecks = { CONFIG, parseAmount, parseDate, sanitize, buildFilename };
+  window.allyChecks = {
+    CONFIG, parseAmount, parseDate, sanitize, buildFilename,
+    sleep, getFieldByLabel, readModalMetadata,
+  };
   console.log('allyChecks loaded. Helpers available; run() added in a later task.');
 })();
