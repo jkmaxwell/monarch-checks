@@ -43,6 +43,8 @@ function parseDateText(t) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const isContextLost = (e) =>
   /context was destroyed|Execution context|Target closed|detached/i.test(String(e && e.message));
+const isConnClosed = (e) =>
+  /Connection closed|ConnectionClosed|WebSocket|Protocol error|Session closed/i.test(String(e && e.message));
 
 // ---- in-page helpers (run via page.evaluate; rely on window.allyChecks) ----
 // Live transaction list is a <table>; each transaction is a <tr> whose row text
@@ -115,22 +117,22 @@ async function main() {
   cutoff.setHours(0, 0, 0, 0);
   console.error(`Backfilling checks on/after ${cutoff.toDateString()} (${MONTHS} months).`);
 
-  const browser = await puppeteer.connect({
-    browserURL: BROWSER_URL,
-    defaultViewport: null,
-    protocolTimeout: 3_600_000,
-  });
-  const pages = await browser.pages();
-  const page = pages.find((p) => /ally\.com/.test(p.url()));
-  if (!page) {
-    console.error('No Ally tab found. Open your Ally transactions page in the debug browser.');
-    await browser.disconnect();
-    process.exit(2);
-  }
-  page.on('pageerror', (err) => console.error('[pageerror] ' + err.message));
-
   const snippet = fs.readFileSync(SNIPPET_PATH, 'utf8');
-  let client;
+  let browser, page, client;
+
+  async function connect() {
+    browser = await puppeteer.connect({
+      browserURL: BROWSER_URL,
+      defaultViewport: null,
+      protocolTimeout: 3_600_000,
+    });
+    const ps = await browser.pages();
+    page = ps.find((p) => /ally\.com/.test(p.url()));
+    if (!page) throw new Error('No Ally tab found (open your Ally transactions page in the debug browser)');
+    page.on('pageerror', (err) => console.error('[pageerror] ' + err.message));
+  }
+  await connect();
+
   async function ready() {
     // (Re)attach download behavior and (re)inject the snippet if missing.
     client = await page.target().createCDPSession();
@@ -165,56 +167,70 @@ async function main() {
   const attempts = {};
   let total = 0;
 
+  let connRetries = 0;
   while (true) {
-    await ready();
-    const checks = (await page.evaluate(pageListChecks))
-      .map((c) => ({ ...c, date: parseDateText(c.dateText) }))
-      .filter((c) => c.date && c.date >= cutoff && !done.has(c.checkNumber));
+    try {
+      await ready();
+      const checks = (await page.evaluate(pageListChecks))
+        .map((c) => ({ ...c, date: parseDateText(c.dateText) }))
+        .filter((c) => c.date && c.date >= cutoff && !done.has(c.checkNumber));
 
-    if (checks.length === 0) break;
-    if (total === 0) console.error(`Found ${checks.length} checks in range to download.`);
+      if (checks.length === 0) break;
+      console.error(`${checks.length} check(s) in range still to download.`);
 
-    let progressed = false;
-    let lostContext = false;
-    for (const c of checks) {
-      attempts[c.checkNumber] = (attempts[c.checkNumber] || 0) + 1;
-      if (attempts[c.checkNumber] > MAX_ATTEMPTS) {
-        console.error(`  #${c.checkNumber}: giving up after ${MAX_ATTEMPTS} attempts`);
-        done.add(c.checkNumber);
-        progressed = true;
-        continue;
-      }
-      try {
-        const res = await page.evaluate(pageProcessCheck, c.checkNumber, CHECK_TIMEOUT_MS);
-        if (res.ok) {
-          byNum[res.record.checkNumber] = res.record;
+      let progressed = false;
+      let lostContext = false;
+      for (const c of checks) {
+        attempts[c.checkNumber] = (attempts[c.checkNumber] || 0) + 1;
+        if (attempts[c.checkNumber] > MAX_ATTEMPTS) {
+          console.error(`  #${c.checkNumber}: giving up after ${MAX_ATTEMPTS} attempts`);
           done.add(c.checkNumber);
-          total++;
           progressed = true;
-          console.error(`  #${c.checkNumber} (${c.dateText}) -> ${res.record.frontFile}`);
-          fs.writeFileSync(META_PATH, JSON.stringify(Object.values(byNum), null, 2)); // checkpoint
-        } else {
-          console.error(`  #${c.checkNumber}: ${res.error} (attempt ${attempts[c.checkNumber]})`);
+          continue;
+        }
+        try {
+          const res = await page.evaluate(pageProcessCheck, c.checkNumber, CHECK_TIMEOUT_MS);
+          if (res.ok) {
+            byNum[res.record.checkNumber] = res.record;
+            done.add(c.checkNumber);
+            total++;
+            progressed = true;
+            console.error(`  #${c.checkNumber} (${c.dateText}) -> ${res.record.frontFile}`);
+            fs.writeFileSync(META_PATH, JSON.stringify(Object.values(byNum), null, 2)); // checkpoint
+          } else {
+            console.error(`  #${c.checkNumber}: ${res.error} (attempt ${attempts[c.checkNumber]})`);
+            if (attempts[c.checkNumber] >= MAX_ATTEMPTS) {
+              done.add(c.checkNumber);
+              progressed = true;
+            }
+          }
+        } catch (e) {
+          if (isConnClosed(e)) throw e; // bubble to the reconnect handler below
+          if (isContextLost(e)) {
+            console.error(`  context lost on #${c.checkNumber}; recovering…`);
+            lostContext = true;
+            break; // outer loop re-readies (re-inject + re-paginate) and resumes
+          }
+          console.error(`  #${c.checkNumber}: ${e.message}`);
           if (attempts[c.checkNumber] >= MAX_ATTEMPTS) {
             done.add(c.checkNumber);
             progressed = true;
           }
         }
-      } catch (e) {
-        if (isContextLost(e)) {
-          console.error(`  context lost on #${c.checkNumber}; recovering…`);
-          lostContext = true;
-          break; // outer loop re-readies (re-inject + re-paginate) and resumes
-        }
-        console.error(`  #${c.checkNumber}: ${e.message}`);
-        if (attempts[c.checkNumber] >= MAX_ATTEMPTS) {
-          done.add(c.checkNumber);
-          progressed = true;
-        }
+        await sleep(BETWEEN_MS);
       }
-      await sleep(BETWEEN_MS);
+      if (!progressed && !lostContext) break; // nothing advanced and no recovery pending
+    } catch (e) {
+      if (isConnClosed(e) && connRetries < 15) {
+        connRetries++;
+        console.error(`connection dropped (${connRetries}/15); reconnecting…`);
+        try { await browser.disconnect(); } catch {}
+        await sleep(3000);
+        await connect();
+        continue;
+      }
+      throw e;
     }
-    if (!progressed && !lostContext) break; // nothing advanced and no recovery pending
   }
 
   fs.writeFileSync(META_PATH, JSON.stringify(Object.values(byNum), null, 2));
