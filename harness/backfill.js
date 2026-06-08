@@ -83,13 +83,20 @@ async function pageProcessCheck(checkNumber, timeoutMs) {
     re.test(b.textContent || '')
   );
   if (!btn) return { error: 'row not loaded' };
+  btn.scrollIntoView({ block: 'center' });
+  await new Promise((r) => setTimeout(r, 300));
   btn.click();
-  const deadline = Date.now() + 15000;
+  const deadline = Date.now() + 20000;
   let modal = null;
+  let reclicked = false;
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 300));
     modal = document.querySelector('[data-testid="transaction-detail-modal"]');
     if (modal) break;
+    if (!reclicked && Date.now() > deadline - 12000) {
+      btn.click(); // one re-click if the first didn't register
+      reclicked = true;
+    }
   }
   if (!modal) return { error: 'modal did not open' };
   const imgs = await A.expandAndWaitForImages(timeoutMs);
