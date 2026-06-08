@@ -60,6 +60,15 @@ async function startCapture({ windowMonths }) {
   if (!tabs.length) throw new Error('No Ally tab open — open your Ally transactions page first.');
   const tab = tabs.find((t) => t.active) || tabs[0];
 
+  // Ensure the content script is present (it won't be in tabs that were already
+  // open when the extension loaded). Injecting is idempotent — the script guards
+  // re-injection with a window flag.
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content/ally-capture.js'] });
+  } catch (e) {
+    throw new Error('Could not inject into the Ally tab: ' + ((e && e.message) || e));
+  }
+
   // Hand the walk to the content script; it streams capture/check back to us.
   return await chrome.tabs.sendMessage(tab.id, {
     type: 'capture/run',
