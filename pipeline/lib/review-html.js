@@ -18,9 +18,11 @@ function buildReviewHtml(records) {
     date: r.date,
     amount: r.amount,
     confidence: r.confidence,
-    postedDateTime: r.postedDateTime || '',
-    description: r.description || '',
     type: r.type || '',
+    description: r.description || '',
+    postedDateTime: r.postedDateTime || '',
+    frontFile: r.frontFile || '',
+    backFile: r.backFile || '',
   }));
 
   // Autocomplete suggestions: distinct names already in the set, most-common

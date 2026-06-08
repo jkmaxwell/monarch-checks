@@ -89,9 +89,11 @@ async function main() {
       amount: r.amount,
       recipient,
       confidence,
-      postedDateTime: r.postedDateTime || '',
-      description: r.description || '',
       type: r.type || '',
+      description: r.description || '',
+      postedDateTime: r.postedDateTime || '',
+      frontFile: r.frontFile || '',
+      backFile: r.backFile || '',
       stripDataUri: 'data:image/png;base64,' + fs.readFileSync(stripPath).toString('base64'),
     });
   }
