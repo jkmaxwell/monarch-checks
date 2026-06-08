@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Ally Checks — Review</title>
+  <link rel="stylesheet" href="review.css" />
+</head>
+<body>
+  <header>
+    <h1>Verify check recipients</h1>
+    <span class="hint"><span id="count">0</span> checks · highlighted rows need review · edits save automatically</span>
+    <span class="spacer"></span>
+    <button id="export">Export CSV + JSON</button>
+  </header>
+  <table>
+    <thead>
+      <tr><th>Check #</th><th>Payee strip</th><th>Recipient</th><th>Confidence</th><th>Amount</th><th>Date</th></tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <datalist id="recipient-list"></datalist>
+  <footer><span class="hint" id="status"></span></footer>
+  <script type="module" src="review.js"></script>
+</body>
+</html>

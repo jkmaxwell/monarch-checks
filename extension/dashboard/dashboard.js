@@ -26,6 +26,9 @@ $('open-options').addEventListener('click', (e) => {
   chrome.tabs.create({ url: chrome.runtime.getURL('options/options.html') });
 });
 $('refresh').addEventListener('click', refreshDataset);
+$('review-btn').addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('review/review.html') });
+});
 
 $('capture-btn').addEventListener('click', () => {
   progress.innerHTML = '';

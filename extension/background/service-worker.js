@@ -25,6 +25,8 @@ async function handle(msg, sender) {
       return await storage.patch('settings', msg.partial || {});
     case 'dataset/get':
       return await storage.get('dataset');
+    case 'dataset/setRecipient':
+      return await setRecipient(msg);
 
     case 'capture/start':
       return await startCapture(msg);
@@ -85,6 +87,17 @@ async function onCheckCaptured({ record, stripB64 }) {
   if (!list.some((r) => r.checkNumber === record.checkNumber)) list.push(record);
   await storage.set('dataset', list);
   await storage.markProcessed(record.checkNumber);
+}
+
+async function setRecipient({ checkNumber, recipient, confidence }) {
+  const list = await storage.get('dataset');
+  const r = list.find((x) => String(x.checkNumber) === String(checkNumber));
+  if (r) {
+    r.recipient = String(recipient || '').trim();
+    r.confidence = confidence || 'high'; // user-verified
+    await storage.set('dataset', list);
+  }
+  return { ok: true };
 }
 
 // Phase 2: extract recipients for dataset records that don't have one yet.

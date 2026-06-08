@@ -1,0 +1,21 @@
+:root { color-scheme: light dark; }
+body { font: 15px/1.5 -apple-system, system-ui, sans-serif; margin: 0; padding: 0 0 72px; }
+header { position: sticky; top: 0; background: Canvas; border-bottom: 1px solid #8884; padding: 14px 20px; display: flex; align-items: center; gap: 16px; z-index: 2; }
+header h1 { font-size: 17px; margin: 0; }
+header .spacer { flex: 1; }
+.hint { color: #8a8a8a; font-size: 13px; }
+button { font: inherit; font-weight: 600; padding: 9px 16px; border-radius: 8px; border: 1px solid #8886; background: #2563eb; color: #fff; cursor: pointer; }
+table { border-collapse: collapse; width: 100%; }
+th, td { padding: 8px 12px; border-bottom: 1px solid #8882; text-align: left; vertical-align: middle; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #8a8a8a; position: sticky; top: 53px; background: Canvas; }
+td.strip img { display: block; max-width: 460px; height: auto; background: #fff; border: 1px solid #8883; border-radius: 4px; }
+td.rec input { font: inherit; width: 260px; padding: 7px 9px; border-radius: 6px; border: 1px solid #8886; background: Field; color: FieldText; }
+td.rec input::-webkit-calendar-picker-indicator { opacity: 0.4; }
+td.num, td.amt, td.date { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.badge { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.badge.high { background: #16a34a22; color: #16a34a; }
+.badge.medium { background: #d9770622; color: #d97706; }
+.badge.low { background: #dc262622; color: #dc2626; }
+tr.needs-review { background: #d977060e; }
+tr.needs-review td.rec input { border-color: #d97706; }
+footer { position: fixed; bottom: 0; left: 0; right: 0; background: Canvas; border-top: 1px solid #8884; padding: 12px 20px; }
