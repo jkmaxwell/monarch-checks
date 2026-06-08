@@ -67,9 +67,11 @@ Persisted in `chrome.storage.local`:
 - **`monarchAuth`**: OAuth tokens (access + refresh) + expiry + granted scopes.
 - **`lastRunLog`**: per-check results from the most recent run.
 
-Per-check working record (in memory, mirrors the M4 schema):
-`{ checkNumber, date, amount, recipient, confidence, postedDateTime, description, type, stripDataUri }`
+Per-check working record (mirrors the M4 schema):
+`{ checkNumber, date, amount, recipient, confidence, postedDateTime, description, type }`
 plus reconciliation fields added in P4: `{ transactionId, merchantId, merchantCreated, categoryId, categorySource, status, flagReason }`.
+The cropped payee-strip **blob** is stored in **IndexedDB** keyed by `checkNumber`
+(not as a data-URI in `chrome.storage`); the review UI loads it via an object URL.
 
 ## 4. Capture (in the Ally tab)
 
@@ -125,17 +127,35 @@ Implements the user's **Procedure Spec** verbatim. The input JSON (verified,
 post-review) is the **source of truth**; Monarch's own `Ally Bank` / `Check Paid
 #NNNN` labels are never used to match or to skip.
 
-**MCP client mechanics (the discovery task):**
-- The extension is an MCP client. On first reconcile (or via the Options
-  "Connect Monarch" button): discover the OAuth metadata advertised by
-  `api.monarch.com/mcp` (`401` + `WWW-Authenticate` / `/.well-known/...`), run
-  **OAuth 2.1 PKCE** via `chrome.identity.launchWebAuthFlow` (opens the Monarch
-  consent screen; request **read + write**), store tokens, and refresh as needed.
-- Speak MCP over Streamable HTTP: `initialize` → `tools/list` (discover the actual
-  tool names/schemas) → `tools/call`. The required operations (search
-  transactions, get/create/merge merchants, get categories, update transaction)
-  map onto Monarch's MCP toolset; the extension **adapts to whatever `tools/list`
-  returns** rather than hardcoding tool signatures.
+**MCP client mechanics (research-validated 2026-06-07 against the live server):**
+All of the following runs in the **service worker** (CORS bypass via
+`host_permissions`; a content-script fetch to `api.monarch.com` is hard-blocked).
+- **Discovery:** POST `initialize` to `https://api.monarch.com/mcp` → `401` with
+  `WWW-Authenticate` → GET `/.well-known/oauth-protected-resource/mcp`
+  (`authorization_servers: ["https://api.monarch.com"]`, scopes `mcp:read`,
+  `mcp:write`) → GET `/.well-known/oauth-authorization-server` (authorize/token/
+  register/revoke endpoints, `S256`, public clients, refresh tokens,
+  resource-indicators).
+- **Dynamic Client Registration (once):** POST `/oauth/register` with
+  `redirect_uris:[chrome.identity.getRedirectURL()]`,
+  `token_endpoint_auth_method:"none"`,
+  `grant_types:["authorization_code","refresh_token"]`. Persist the returned
+  `client_id` (DCR returns no registration token — **register once**, never
+  per-run).
+- **OAuth 2.1 + PKCE:** generate `code_verifier` + S256 `code_challenge`;
+  `chrome.identity.launchWebAuthFlow({interactive:true, url: authorize?…&
+  scope=mcp:read mcp:write&code_challenge=…&resource=https://api.monarch.com/mcp})`
+  (opens the Monarch consent screen) → exchange `code` at `/oauth/token/`
+  (include `resource`). Store access + **rotated** refresh tokens; refresh on 401.
+- **MCP session (Streamable HTTP, rev 2025-06-18):** POST `initialize` with
+  `Authorization: Bearer …`, `Accept: application/json, text/event-stream`,
+  `MCP-Protocol-Version: 2025-06-18`; capture `Mcp-Session-Id` and echo it on
+  every later request. POST `notifications/initialized`, then `tools/list` to
+  discover the actual tool names/schemas, then `tools/call`. **Adapt to whatever
+  `tools/list` returns** rather than hardcoding signatures. Use request/response
+  POSTs (handle single-JSON *or* short SSE); avoid long-lived GET SSE (SW
+  lifecycle). The needed ops (search transactions, get/create/merge merchants,
+  get categories, update transaction) are present in Monarch's toolset.
 
 **Per-check logic (from the Procedure Spec — authoritative):**
 - **Tiered search:** (1) check number in original statement → (2) date+amount →
@@ -181,17 +201,39 @@ post-review) is the **source of truth**; Monarch's own `Ally Bank` / `Check Paid
 - Reconcile: never write on ambiguous match or stale read; verify each write;
   refresh OAuth token on 401; honor the Procedure Spec's "success ≠ landed" rule.
 
-## 11. Unknowns to confirm during implementation
+## 11. Resolved technical decisions (research-validated 2026-06-07)
 
-- **Dia unpacked-extension support** — confirm Dia loads an unpacked MV3
-  extension (developer mode). If not, fall back to any Chromium browser.
-- **Monarch MCP OAuth + transport details** — exact `.well-known` metadata,
-  whether dynamic client registration is required, and the Streamable-HTTP
-  request shape — reverse-engineered from `api.monarch.com/mcp` (analogous to how
-  Ally's DOM was discovered).
-- **Monarch MCP tool names/params** — discovered at runtime via `tools/list`.
-- **Anthropic browser CORS** — confirm `anthropic-dangerous-direct-browser-access`
-  works from an MV3 service worker with `host_permissions`.
+The major risks were researched and (where possible) live-verified against the
+real servers. Conclusions baked into this design:
+
+- **Manifest:** MV3. `permissions: ["identity","storage","alarms","unlimitedStorage"]`;
+  `host_permissions: ["https://api.anthropic.com/*","https://api.monarch.com/*"]`;
+  content script matching `https://secure.ally.com/*`.
+- **CORS discipline (load-bearing):** ALL `api.anthropic.com` and `api.monarch.com`
+  fetches run in the **service worker**, which bypasses CORS via `host_permissions`.
+  A content-script fetch to either is hard-blocked. The Ally content script does
+  DOM only and passes blobs/metadata to the worker via messaging.
+- **Anthropic call:** service-worker `fetch` with `x-api-key` (from settings),
+  `anthropic-version`, and `anthropic-dangerous-direct-browser-access: true`.
+  Base64 image + `output_config.format` work; model `claude-opus-4-8`, adaptive
+  thinking, `effort:"high"` (no `temperature`/`top_p`/`budget_tokens`).
+- **Monarch MCP:** confirmed feasible as a client — the live server advertises DCR
+  + PKCE S256 + public clients + refresh + `mcp:read`/`mcp:write`, and accepted a
+  `chromiumapp.org` redirect URI on a test registration. See §7 for the flow.
+- **Image crop in the worker:** `createImageBitmap(blob)` → draw region onto an
+  `OffscreenCanvas` → `convertToBlob()`. (No DOM/`Image()` in a SW.)
+- **Storage:** `chrome.storage.local` (10 MB; `unlimitedStorage` added) for
+  settings/history/tokens; store cropped-strip blobs in **IndexedDB**, not
+  data-URIs in storage, to stay clear of limits.
+- **SW lifecycle:** workers are ephemeral; keep durable state in storage/IndexedDB,
+  keep the worker alive during a run with `chrome.alarms`, treat dropped SSE as
+  retryable.
+- **Browser:** develop in Chrome/Chromium (richest devtools, identical MV3), then
+  load the same unpacked build in **Dia** to confirm (Dia is Chromium/MV3-first).
+
+**Residual items confirmed only at build time:** exact Monarch MCP tool
+names/param schemas (via `tools/list` at runtime); a final smoke-test of the
+whole OAuth+MCP round trip in Dia specifically.
 
 ## 12. Testing
 
