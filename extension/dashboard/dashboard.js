@@ -19,7 +19,12 @@ chrome.runtime.sendMessage({ type: 'settings/get' }, (s) => {
 });
 refreshDataset();
 
-$('open-options').addEventListener('click', (e) => { e.preventDefault(); chrome.runtime.openOptionsPage(); });
+// Open options in a tab directly — openOptionsPage() throws in some Chromium
+// builds (e.g. Dia: "Could not create an options page").
+$('open-options').addEventListener('click', (e) => {
+  e.preventDefault();
+  chrome.tabs.create({ url: chrome.runtime.getURL('options/options.html') });
+});
 $('refresh').addEventListener('click', refreshDataset);
 
 $('capture-btn').addEventListener('click', () => {
