@@ -72,6 +72,8 @@ function buildReviewHtml(records) {
   th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #8a8a8a; position: sticky; top: 53px; background: Canvas; }
   td.strip img { display: block; max-width: 460px; height: auto; background: #fff; border: 1px solid #8883; border-radius: 4px; }
   td.rec input { font: inherit; width: 240px; padding: 7px 9px; border-radius: 6px; border: 1px solid #8886; background: Field; color: FieldText; }
+  /* datalist dropdown arrow (the little triangle) — centered, ~40% gray */
+  td.rec input::-webkit-calendar-picker-indicator { opacity: 0.4; margin: auto 0; align-self: center; }
   td.num, td.amt, td.date { white-space: nowrap; font-variant-numeric: tabular-nums; }
   .badge { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
   .badge.high { background: #16a34a22; color: #16a34a; }
