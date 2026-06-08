@@ -23,6 +23,18 @@ function buildReviewHtml(records) {
     type: r.type || '',
   }));
 
+  // Autocomplete suggestions: distinct names already in the set, most-common
+  // first, so typing "jane" surfaces "Jane Doe" and variants converge.
+  const counts = {};
+  for (const r of records) {
+    const n = (r.recipient || '').trim();
+    if (n) counts[n] = (counts[n] || 0) + 1;
+  }
+  const suggestions = Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b));
+  const datalist = `<datalist id="recipient-list">${suggestions
+    .map((n) => `<option value="${esc(n)}"></option>`)
+    .join('')}</datalist>`;
+
   const rows = records
     .map((r, i) => {
       const needs = r.confidence !== 'high' || !r.recipient ? ' needs-review' : '';
@@ -32,7 +44,7 @@ function buildReviewHtml(records) {
         <td class="strip"><img src="${r.stripDataUri || ''}" alt="payee strip for check ${esc(
         r.checkNumber
       )}"></td>
-        <td class="rec"><input id="rec-${i}" type="text" value="${esc(r.recipient)}"></td>
+        <td class="rec"><input id="rec-${i}" type="text" list="recipient-list" autocomplete="off" value="${esc(r.recipient)}"></td>
         <td class="conf"><span class="badge ${esc(r.confidence)}">${esc(r.confidence)}</span></td>
         <td class="amt">${esc(r.amount)}</td>
         <td class="date">${esc(r.date)}</td>
@@ -84,6 +96,7 @@ function buildReviewHtml(records) {
   <tbody>${rows}
   </tbody>
 </table>
+${datalist}
 <footer>
   <span class="hint" id="status">Review the highlighted rows, correct any names, then click Export.</span>
 </footer>
