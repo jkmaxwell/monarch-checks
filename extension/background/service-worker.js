@@ -4,6 +4,7 @@
 import * as storage from '../lib/storage.js';
 import * as idb from '../lib/idb.js';
 import { b64ToBlob } from '../lib/util.js';
+import { extractRecipient } from './anthropic.js';
 
 chrome.runtime.onInstalled.addListener(() => console.log('Ally Checks installed'));
 
@@ -33,6 +34,9 @@ async function handle(msg, sender) {
     case 'capture/progress':
     case 'capture/done':
       return { ok: true }; // dashboard listens to these for UI; SW persists via capture/check
+
+    case 'extract/start':
+      return await runExtract();
 
     default:
       return { error: 'unknown message: ' + msg?.type };
@@ -72,4 +76,33 @@ async function onCheckCaptured({ record, stripB64 }) {
   if (!list.some((r) => r.checkNumber === record.checkNumber)) list.push(record);
   await storage.set('dataset', list);
   await storage.markProcessed(record.checkNumber);
+}
+
+// Phase 2: extract recipients for dataset records that don't have one yet.
+async function runExtract() {
+  const settings = await storage.get('settings');
+  if (!settings.anthropicApiKey) throw new Error('Set your Claude API key in Settings first.');
+  const list = await storage.get('dataset');
+  const todo = list.filter((r) => !r.recipient);
+  let done = 0;
+  for (const r of todo) {
+    const strip = await idb.getStrip(r.checkNumber);
+    if (!strip) { r.confidence = 'low'; continue; }
+    try {
+      const res = await extractRecipient(strip, settings.anthropicApiKey);
+      r.recipient = res.recipient;
+      r.confidence = res.confidence;
+    } catch (e) {
+      r.recipient = '';
+      r.confidence = 'low';
+      r.extractError = String((e && e.message) || e);
+    }
+    done++;
+    await storage.set('dataset', list); // checkpoint each
+    chrome.runtime.sendMessage({
+      type: 'extract/progress', done, total: todo.length,
+      checkNumber: r.checkNumber, recipient: r.recipient, confidence: r.confidence,
+    });
+  }
+  return { extracted: done };
 }

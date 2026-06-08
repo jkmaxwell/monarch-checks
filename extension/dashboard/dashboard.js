@@ -35,13 +35,28 @@ $('capture-btn').addEventListener('click', () => {
   });
 });
 
-// live progress (broadcast from the content script)
+$('extract-btn').addEventListener('click', () => {
+  progress.innerHTML = '';
+  status.textContent = 'Extracting recipients…';
+  $('extract-btn').disabled = true;
+  chrome.runtime.sendMessage({ type: 'extract/start' }, (res) => {
+    $('extract-btn').disabled = false;
+    if (chrome.runtime.lastError) { status.textContent = 'Error: ' + chrome.runtime.lastError.message; return; }
+    if (res && res.error) { status.textContent = 'Error: ' + res.error; return; }
+    status.textContent = `Extracted ${res ? res.extracted : 0} recipient(s).`;
+    refreshDataset();
+  });
+});
+
+// live progress (broadcast from the content script / SW)
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg?.type === 'capture/progress') {
     if (msg.error) logLine(progress, '⚠ ' + msg.error, 'err');
     else logLine(progress, `✓ #${msg.checkNumber} (${msg.date || ''})`);
   } else if (msg?.type === 'capture/done') {
     logLine(progress, `Captured ${msg.captured} this run.`);
+  } else if (msg?.type === 'extract/progress') {
+    logLine(progress, `${msg.done}/${msg.total} · #${msg.checkNumber} → ${msg.recipient || '∅'} [${msg.confidence}]`);
   }
 });
 
@@ -49,6 +64,7 @@ function refreshDataset() {
   chrome.runtime.sendMessage({ type: 'dataset/get' }, (ds) => {
     const list = Array.isArray(ds) ? ds : [];
     $('count').textContent = String(list.length);
+    $('needs').textContent = String(list.filter((r) => !r.recipient).length);
     const ul = $('preview');
     ul.innerHTML = '';
     for (const r of list.slice(-12).reverse()) {
