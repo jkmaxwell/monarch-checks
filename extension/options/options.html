@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Ally Checks — Settings</title>
+  <style>
+    body { font: 14px/1.6 -apple-system, system-ui, sans-serif; max-width: 640px; margin: 32px auto; padding: 0 20px; color-scheme: light dark; }
+    h1 { font-size: 18px; }
+    section { margin: 22px 0; }
+    label { display: block; font-weight: 600; margin-bottom: 4px; }
+    input[type=text], input[type=password], select { font: inherit; width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #8886; box-sizing: border-box; }
+    button { font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 8px; border: 1px solid #8886; background: #2563eb; color: #fff; cursor: pointer; margin-top: 10px; }
+    .hint { color: #8a8a8a; font-size: 13px; }
+    #status { color: #16a34a; font-size: 13px; margin-left: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Ally Checks — Settings</h1>
+
+  <section>
+    <label for="api-key">Claude API key</label>
+    <input id="api-key" type="password" placeholder="sk-ant-…" autocomplete="off" />
+    <p class="hint">Used in-browser for recipient extraction. Stored locally in the extension only.</p>
+  </section>
+
+  <section>
+    <label for="window">Default first-run history window</label>
+    <select id="window">
+      <option value="6">6 months</option>
+      <option value="12">1 year</option>
+      <option value="24">2 years</option>
+      <option value="0">All time</option>
+    </select>
+  </section>
+
+  <!-- Monarch connect/revoke (Task 4.1) and normalization map editor (Task 4.3) added later -->
+
+  <button id="save">Save</button><span id="status"></span>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

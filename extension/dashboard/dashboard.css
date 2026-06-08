@@ -1,0 +1,8 @@
+:root { color-scheme: light dark; }
+body { font: 14px/1.5 -apple-system, system-ui, sans-serif; margin: 0; padding: 14px 16px; min-width: 360px; }
+header { display: flex; align-items: baseline; gap: 12px; }
+h1 { font-size: 16px; margin: 0 0 8px; flex: 1; }
+.hint { color: #8a8a8a; font-size: 13px; }
+button { font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 8px; border: 1px solid #8886; background: #2563eb; color: #fff; cursor: pointer; }
+button.secondary { background: transparent; color: inherit; }
+a { color: #2563eb; }
