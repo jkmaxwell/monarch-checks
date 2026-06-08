@@ -10,8 +10,27 @@
     <h1>Ally Checks</h1>
     <a href="#" id="open-options">Settings</a>
   </header>
-  <p id="status" class="hint">Connecting…</p>
-  <!-- Capture / review / reconcile UI added in Tasks 1.4, 3.1, 4.3 -->
+
+  <section id="capture">
+    <div class="row">
+      <label for="window">History window</label>
+      <select id="window">
+        <option value="6">6 months</option>
+        <option value="12">1 year</option>
+        <option value="24">2 years</option>
+        <option value="0">All time</option>
+      </select>
+      <button id="capture-btn">Capture new checks</button>
+    </div>
+    <p id="status" class="hint">Connecting…</p>
+    <ul id="progress" class="log"></ul>
+  </section>
+
+  <section id="dataset">
+    <p class="hint"><span id="count">0</span> checks captured. <button id="refresh" class="secondary">Refresh</button></p>
+    <ul id="preview" class="log"></ul>
+  </section>
+
   <script type="module" src="dashboard.js"></script>
 </body>
 </html>

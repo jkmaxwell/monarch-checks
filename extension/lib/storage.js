@@ -9,6 +9,7 @@ const DEFAULTS = {
   },
   monarchAuth: null, // { clientId, accessToken, refreshToken, expiresAt, scopes }
   runLog: [],
+  dataset: [], // working per-check records (accumulates across runs, deduped by checkNumber)
 };
 
 export async function get(key) {
