@@ -33,7 +33,14 @@
     </select>
   </section>
 
-  <!-- Monarch connect/revoke (Task 4.1) and normalization map editor (Task 4.3) added later -->
+  <section>
+    <label>Monarch</label>
+    <p class="hint" id="monarch-status">Checking…</p>
+    <button id="monarch-connect">Connect Monarch</button>
+    <button id="monarch-revoke" style="background:transparent;color:inherit">Disconnect</button>
+    <button id="monarch-tools" style="background:transparent;color:inherit">List tools (debug)</button>
+    <pre id="tools-out" style="white-space:pre-wrap;font-size:11px;max-height:280px;overflow:auto;background:#8881;padding:8px;border-radius:6px;margin-top:10px;display:none"></pre>
+  </section>
 
   <button id="save">Save</button><span id="status"></span>
 

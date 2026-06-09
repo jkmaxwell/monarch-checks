@@ -1,0 +1,189 @@
+// Monarch MCP client (service worker only). OAuth 2.1 + PKCE via dynamic client
+// registration + chrome.identity.launchWebAuthFlow, then JSON-RPC over the
+// Streamable-HTTP transport. Flow validated live against api.monarch.com.
+import * as storage from '../lib/storage.js';
+import { pkceChallenge, randomToken } from '../lib/util.js';
+
+const MCP_URL = 'https://api.monarch.com/mcp';
+const PRM_URL = 'https://api.monarch.com/.well-known/oauth-protected-resource/mcp';
+const PROTOCOL_VERSION = '2025-06-18';
+
+let sessionId = null; // module-global; re-init if the SW restarted (sessionId null)
+
+// ---- OAuth ----
+async function discover() {
+  const prm = await (await fetch(PRM_URL)).json();
+  const asBase = prm.authorization_servers[0].replace(/\/$/, '');
+  const asm = await (await fetch(asBase + '/.well-known/oauth-authorization-server')).json();
+  return { resource: prm.resource, asm };
+}
+
+async function registerClient(asm) {
+  const auth = await storage.get('monarchAuth');
+  if (auth && auth.clientId) return auth.clientId;
+  const resp = await fetch(asm.registration_endpoint, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      redirect_uris: [chrome.identity.getRedirectURL()],
+      token_endpoint_auth_method: 'none',
+      grant_types: ['authorization_code', 'refresh_token'],
+      response_types: ['code'],
+      scope: 'mcp:read mcp:write',
+      client_name: 'Ally Checks Extension',
+    }),
+  });
+  if (!resp.ok) throw new Error('DCR failed: ' + resp.status + ' ' + (await resp.text()).slice(0, 200));
+  const reg = await resp.json();
+  await storage.patch('monarchAuth', { clientId: reg.client_id });
+  return reg.client_id;
+}
+
+export async function connect() {
+  const { resource, asm } = await discover();
+  const clientId = await registerClient(asm);
+  const redirect = chrome.identity.getRedirectURL();
+  const { verifier, challenge } = await pkceChallenge();
+  const state = randomToken(16);
+
+  const url = new URL(asm.authorization_endpoint);
+  for (const [k, v] of Object.entries({
+    response_type: 'code', client_id: clientId, redirect_uri: redirect,
+    scope: 'mcp:read mcp:write', code_challenge: challenge, code_challenge_method: 'S256',
+    state, resource,
+  })) url.searchParams.set(k, v);
+
+  const redirected = await chrome.identity.launchWebAuthFlow({ interactive: true, url: url.toString() });
+  const ru = new URL(redirected);
+  if (ru.searchParams.get('state') !== state) throw new Error('OAuth state mismatch');
+  const code = ru.searchParams.get('code');
+  if (!code) throw new Error('No authorization code: ' + (ru.searchParams.get('error') || 'unknown'));
+
+  const tok = await fetch(asm.token_endpoint, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code', code, redirect_uri: redirect,
+      client_id: clientId, code_verifier: verifier, resource,
+    }),
+  });
+  if (!tok.ok) throw new Error('Token exchange failed: ' + tok.status + ' ' + (await tok.text()).slice(0, 200));
+  const t = await tok.json();
+  await storage.patch('monarchAuth', {
+    accessToken: t.access_token, refreshToken: t.refresh_token,
+    expiresAt: Date.now() + (t.expires_in || 3600) * 1000, scopes: t.scope,
+    tokenEndpoint: asm.token_endpoint, resource,
+  });
+  sessionId = null;
+  return { ok: true, scopes: t.scope };
+}
+
+export async function status() {
+  const auth = await storage.get('monarchAuth');
+  return { connected: Boolean(auth && auth.accessToken), scopes: auth && auth.scopes };
+}
+
+export async function revoke() {
+  await storage.set('monarchAuth', null);
+  sessionId = null;
+  return { ok: true };
+}
+
+async function refresh(auth) {
+  const tok = await fetch(auth.tokenEndpoint, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token', refresh_token: auth.refreshToken,
+      client_id: auth.clientId, resource: auth.resource,
+    }),
+  });
+  if (!tok.ok) throw new Error('Token refresh failed: ' + tok.status);
+  const t = await tok.json();
+  return await storage.patch('monarchAuth', {
+    accessToken: t.access_token, refreshToken: t.refresh_token || auth.refreshToken,
+    expiresAt: Date.now() + (t.expires_in || 3600) * 1000,
+  });
+}
+
+async function accessToken() {
+  let auth = await storage.get('monarchAuth');
+  if (!auth || !auth.accessToken) throw new Error('Not connected to Monarch — connect in Settings.');
+  if (auth.expiresAt && Date.now() > auth.expiresAt - 60000 && auth.refreshToken) auth = await refresh(auth);
+  return auth.accessToken;
+}
+
+// ---- transport ----
+function headers(token) {
+  const h = {
+    'content-type': 'application/json',
+    accept: 'application/json, text/event-stream',
+    authorization: 'Bearer ' + token,
+    'MCP-Protocol-Version': PROTOCOL_VERSION,
+  };
+  if (sessionId) h['Mcp-Session-Id'] = sessionId;
+  return h;
+}
+
+function parseSse(text) {
+  let last = null;
+  for (const line of text.split('\n')) {
+    const m = line.match(/^data:\s?(.*)$/);
+    if (!m) continue;
+    try {
+      const j = JSON.parse(m[1]);
+      if (j && (j.result !== undefined || j.error !== undefined || j.id !== undefined)) last = j;
+    } catch {}
+  }
+  if (!last) throw new Error('No JSON-RPC message in SSE response');
+  return last;
+}
+
+async function rpc(method, params, retryAuth = true) {
+  const token = await accessToken();
+  const resp = await fetch(MCP_URL, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params: params || {} }),
+  });
+  if (resp.status === 401 && retryAuth) {
+    const auth = await storage.get('monarchAuth');
+    if (auth && auth.refreshToken) { await refresh(auth); return rpc(method, params, false); }
+  }
+  const sid = resp.headers.get('Mcp-Session-Id');
+  if (sid) sessionId = sid;
+  if (!resp.ok) throw new Error('MCP ' + method + ' HTTP ' + resp.status + ' ' + (await resp.text()).slice(0, 200));
+  const ct = resp.headers.get('content-type') || '';
+  const data = ct.includes('text/event-stream') ? parseSse(await resp.text()) : await resp.json();
+  if (data.error) throw new Error('MCP ' + method + ' error: ' + JSON.stringify(data.error));
+  return data.result;
+}
+
+async function notify(method, params) {
+  const token = await accessToken();
+  await fetch(MCP_URL, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ jsonrpc: '2.0', method, params: params || {} }),
+  });
+}
+
+async function ensureSession() {
+  if (sessionId) return;
+  await rpc('initialize', {
+    protocolVersion: PROTOCOL_VERSION,
+    capabilities: {},
+    clientInfo: { name: 'ally-checks-ext', version: '0.1.0' },
+  });
+  await notify('notifications/initialized');
+}
+
+export async function listTools() {
+  await ensureSession();
+  return await rpc('tools/list', {});
+}
+
+export async function callTool(name, args) {
+  await ensureSession();
+  return await rpc('tools/call', { name, arguments: args || {} });
+}

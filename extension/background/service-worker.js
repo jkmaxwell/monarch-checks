@@ -5,6 +5,7 @@ import * as storage from '../lib/storage.js';
 import * as idb from '../lib/idb.js';
 import { b64ToBlob } from '../lib/util.js';
 import { extractRecipient } from './anthropic.js';
+import * as mcp from './mcp-client.js';
 
 chrome.runtime.onInstalled.addListener(() => console.log('Ally Checks installed'));
 
@@ -39,6 +40,15 @@ async function handle(msg, sender) {
 
     case 'extract/start':
       return await runExtract();
+
+    case 'monarch/connect':
+      return await mcp.connect();
+    case 'monarch/status':
+      return await mcp.status();
+    case 'monarch/revoke':
+      return await mcp.revoke();
+    case 'monarch/tools':
+      return await mcp.listTools();
 
     default:
       return { error: 'unknown message: ' + msg?.type };

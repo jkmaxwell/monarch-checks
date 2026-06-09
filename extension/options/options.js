@@ -8,6 +8,34 @@ chrome.runtime.sendMessage({ type: 'settings/get' }, (s) => {
   windowSel.value = String((s && s.defaultWindowMonths) ?? 6);
 });
 
+// --- Monarch connection ---
+const mStatus = document.getElementById('monarch-status');
+const toolsOut = document.getElementById('tools-out');
+const send = (msg) => new Promise((res) => chrome.runtime.sendMessage(msg, res));
+
+function refreshMonarch() {
+  send({ type: 'monarch/status' }).then((s) => {
+    mStatus.textContent = s && s.connected ? `Connected (scopes: ${s.scopes || '—'}).` : 'Not connected.';
+  });
+}
+refreshMonarch();
+
+document.getElementById('monarch-connect').addEventListener('click', async () => {
+  mStatus.textContent = 'Opening Monarch consent…';
+  const r = await send({ type: 'monarch/connect' });
+  mStatus.textContent = r && r.error ? 'Error: ' + r.error : `Connected (scopes: ${r.scopes || '—'}).`;
+});
+document.getElementById('monarch-revoke').addEventListener('click', async () => {
+  await send({ type: 'monarch/revoke' });
+  refreshMonarch();
+});
+document.getElementById('monarch-tools').addEventListener('click', async () => {
+  toolsOut.style.display = 'block';
+  toolsOut.textContent = 'Listing tools…';
+  const r = await send({ type: 'monarch/tools' });
+  toolsOut.textContent = r && r.error ? 'Error: ' + r.error : JSON.stringify(r, null, 2);
+});
+
 document.getElementById('save').addEventListener('click', () => {
   const partial = {
     anthropicApiKey: keyInput.value.trim(),
