@@ -54,10 +54,43 @@ async function handle(msg, sender) {
     case 'monarch/probe':
       return await probeMonarch(msg);
     case 'reconcile/run':
-      return await reconcile.run({ dryRun: !!msg.dryRun });
+      startReconcile(!!msg.dryRun); // detached; streams progress + a done broadcast
+      return { started: true };
 
     default:
       return { error: 'unknown message: ' + msg?.type };
+  }
+}
+
+// Keep the MV3 service worker alive during long runs (each API call resets the
+// ~30s idle timer); in-flight fetches help too, this covers the gaps.
+let keepAliveTimer = null;
+function keepAlive(on) {
+  if (on) {
+    if (!keepAliveTimer) keepAliveTimer = setInterval(() => chrome.runtime.getPlatformInfo(() => {}), 20000);
+  } else if (keepAliveTimer) {
+    clearInterval(keepAliveTimer);
+    keepAliveTimer = null;
+  }
+}
+
+// Run reconcile detached from the request channel; broadcast progress + a final
+// 'reconcile/done' so the UI doesn't depend on a long-held sendResponse.
+async function startReconcile(dryRun) {
+  keepAlive(true);
+  try {
+    const res = await reconcile.run({ dryRun });
+    const log = res.log || [];
+    const count = (s) => log.filter((e) => (e.status || '').startsWith(s)).length;
+    chrome.runtime.sendMessage({
+      type: 'reconcile/done', dryRun,
+      written: count('written'), would: count('would'), skipped: count('skipped'),
+      flagged: count('flagged'), merges: (res.merges || []).length,
+    });
+  } catch (e) {
+    chrome.runtime.sendMessage({ type: 'reconcile/done', dryRun, error: String((e && e.message) || e) });
+  } finally {
+    keepAlive(false);
   }
 }
 

@@ -98,19 +98,13 @@ function reconLine(entry) {
     (entry.flag ? ` [${entry.flag}]` : '');
   reconLog.prepend(li);
 }
-async function runReconcile(dryRun) {
+function runReconcile(dryRun) {
   reconDiv.hidden = false;
   reconLog.innerHTML = '';
   $('recon-summary').textContent = dryRun ? 'Dry run — computing, no writes…' : 'Reconciling — writing to Monarch…';
   $('dryrun').disabled = true; $('reconcile').disabled = true;
-  const res = await send({ type: 'reconcile/run', dryRun });
-  $('dryrun').disabled = false; $('reconcile').disabled = false;
-  if (res && res.error) { $('recon-summary').textContent = 'Error: ' + res.error; return; }
-  const log = (res && res.log) || [];
-  const c = (s) => log.filter((e) => (e.status || '').startsWith(s)).length;
-  $('recon-summary').textContent =
-    `${dryRun ? 'Dry run' : 'Done'}: ${c('written')} written, ${c('would')} would-write, ` +
-    `${c('skipped')} skipped, ${c('flagged')} flagged · ${(res.merges || []).length} merchant merge(s).`;
+  // Fire-and-forget; results arrive via reconcile/progress + reconcile/done.
+  chrome.runtime.sendMessage({ type: 'reconcile/run', dryRun }, () => void chrome.runtime.lastError);
 }
 $('dryrun').addEventListener('click', () => runReconcile(true));
 $('reconcile').addEventListener('click', () => {
@@ -118,7 +112,15 @@ $('reconcile').addEventListener('click', () => {
   runReconcile(false);
 });
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg && msg.type === 'reconcile/progress' && msg.entry) reconLine(msg.entry);
+  if (!msg) return;
+  if (msg.type === 'reconcile/progress' && msg.entry) reconLine(msg.entry);
+  else if (msg.type === 'reconcile/done') {
+    $('dryrun').disabled = false; $('reconcile').disabled = false;
+    if (msg.error) { $('recon-summary').textContent = 'Error: ' + msg.error; return; }
+    $('recon-summary').textContent =
+      `${msg.dryRun ? 'Dry run' : 'Done'}: ${msg.written} written, ${msg.would} would-write, ` +
+      `${msg.skipped} skipped, ${msg.flagged} flagged · ${msg.merges} merchant merge(s).`;
+  }
 });
 
 load();
