@@ -44,25 +44,23 @@ function render() {
   }
 }
 
-let saveTimer;
-$('rows').addEventListener('input', (e) => {
+// Save on commit (blur / Enter), not on every keystroke — avoids persisting a
+// half-typed value like "Ia".
+$('rows').addEventListener('change', async (e) => {
   const input = e.target.closest('input[data-check]');
   if (!input) return;
   const check = input.dataset.check;
-  const val = input.value;
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => {
-    await send({ type: 'dataset/setRecipient', checkNumber: check, recipient: val, confidence: 'high' });
-    const rec = records.find((r) => String(r.checkNumber) === String(check));
-    if (rec) { rec.recipient = val.trim(); rec.confidence = 'high'; }
-    buildDatalist(); // new/corrected names become autocomplete suggestions immediately
-    const row = input.closest('tr');
-    row.classList.remove('needs-review');
-    const badge = row.querySelector('.badge');
-    badge.textContent = 'high';
-    badge.className = 'badge high';
-    $('status').textContent = `Saved #${check}.`;
-  }, 400);
+  const val = input.value.trim();
+  await send({ type: 'dataset/setRecipient', checkNumber: check, recipient: val, confidence: 'high' });
+  const rec = records.find((r) => String(r.checkNumber) === String(check));
+  if (rec) { rec.recipient = val; rec.confidence = 'high'; }
+  buildDatalist(); // corrected names become autocomplete suggestions immediately
+  const row = input.closest('tr');
+  row.classList.remove('needs-review');
+  const badge = row.querySelector('.badge');
+  badge.textContent = 'high';
+  badge.className = 'badge high';
+  $('status').textContent = `Saved #${check}.`;
 });
 
 // Export full-field CSV + JSON, client-side.
