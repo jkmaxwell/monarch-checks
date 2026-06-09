@@ -32,7 +32,8 @@ async function handle(msg, sender) {
       return await setRecipient(msg);
 
     case 'capture/start':
-      return await startCapture(msg);
+      startCaptureDetached(msg); // detached; content script broadcasts capture/done
+      return { started: true };
     case 'capture/check':
       await onCheckCaptured(msg);
       return { ok: true };
@@ -41,7 +42,8 @@ async function handle(msg, sender) {
       return { ok: true }; // dashboard listens to these for UI; SW persists via capture/check
 
     case 'extract/start':
-      return await runExtract();
+      startExtractDetached(); // detached; broadcasts extract/done
+      return { started: true };
 
     case 'monarch/connect':
       return await mcp.connect();
@@ -89,6 +91,29 @@ async function startReconcile(dryRun) {
     });
   } catch (e) {
     chrome.runtime.sendMessage({ type: 'reconcile/done', dryRun, error: String((e && e.message) || e) });
+  } finally {
+    keepAlive(false);
+  }
+}
+
+async function startCaptureDetached(msg) {
+  keepAlive(true);
+  try {
+    await startCapture(msg);
+  } catch (e) {
+    chrome.runtime.sendMessage({ type: 'capture/done', captured: 0, error: String((e && e.message) || e) });
+  } finally {
+    keepAlive(false);
+  }
+}
+
+async function startExtractDetached() {
+  keepAlive(true);
+  try {
+    const res = await runExtract();
+    chrome.runtime.sendMessage({ type: 'extract/done', extracted: res.extracted });
+  } catch (e) {
+    chrome.runtime.sendMessage({ type: 'extract/done', extracted: 0, error: String((e && e.message) || e) });
   } finally {
     keepAlive(false);
   }

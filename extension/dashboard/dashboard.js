@@ -32,39 +32,35 @@ $('review-btn').addEventListener('click', () => {
 
 $('capture-btn').addEventListener('click', () => {
   progress.innerHTML = '';
-  status.textContent = 'Capturing… keep this popup open.';
+  status.textContent = 'Capturing… (you can close this popup; it keeps running)';
   $('capture-btn').disabled = true;
-  chrome.runtime.sendMessage({ type: 'capture/start', windowMonths: Number($('window').value) }, (res) => {
-    $('capture-btn').disabled = false;
-    if (chrome.runtime.lastError) { status.textContent = 'Error: ' + chrome.runtime.lastError.message; return; }
-    if (res && res.error) { status.textContent = 'Error: ' + res.error; return; }
-    status.textContent = `Done — ${res ? res.captured : 0} new check(s) captured.`;
-    refreshDataset();
-  });
+  chrome.runtime.sendMessage({ type: 'capture/start', windowMonths: Number($('window').value) }, () => void chrome.runtime.lastError);
 });
 
 $('extract-btn').addEventListener('click', () => {
   progress.innerHTML = '';
-  status.textContent = 'Extracting recipients…';
+  status.textContent = 'Extracting recipients… (keeps running if popup closes)';
   $('extract-btn').disabled = true;
-  chrome.runtime.sendMessage({ type: 'extract/start' }, (res) => {
-    $('extract-btn').disabled = false;
-    if (chrome.runtime.lastError) { status.textContent = 'Error: ' + chrome.runtime.lastError.message; return; }
-    if (res && res.error) { status.textContent = 'Error: ' + res.error; return; }
-    status.textContent = `Extracted ${res ? res.extracted : 0} recipient(s).`;
-    refreshDataset();
-  });
+  chrome.runtime.sendMessage({ type: 'extract/start' }, () => void chrome.runtime.lastError);
 });
 
-// live progress (broadcast from the content script / SW)
+// live progress + done (broadcast from the content script / SW)
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg?.type === 'capture/progress') {
+  if (!msg) return;
+  if (msg.type === 'capture/progress') {
     if (msg.error) logLine(progress, '⚠ ' + msg.error, 'err');
     else logLine(progress, `✓ #${msg.checkNumber} (${msg.date || ''})`);
-  } else if (msg?.type === 'capture/done') {
+  } else if (msg.type === 'capture/done') {
     logLine(progress, `Captured ${msg.captured} this run.`);
-  } else if (msg?.type === 'extract/progress') {
+    $('capture-btn').disabled = false;
+    status.textContent = msg.error ? 'Error: ' + msg.error : `Done — ${msg.captured} new check(s) captured.`;
+    refreshDataset();
+  } else if (msg.type === 'extract/progress') {
     logLine(progress, `${msg.done}/${msg.total} · #${msg.checkNumber} → ${msg.recipient || '∅'} [${msg.confidence}]`);
+  } else if (msg.type === 'extract/done') {
+    $('extract-btn').disabled = false;
+    status.textContent = msg.error ? 'Error: ' + msg.error : `Extracted ${msg.extracted} recipient(s).`;
+    refreshDataset();
   }
 });
 
