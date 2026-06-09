@@ -10,6 +10,24 @@ function logLine(ul, text, cls) {
   ul.prepend(li);
 }
 
+// --- live run-state banner ---
+const banner = $('runbanner');
+const LABELS = { capture: 'Capturing checks', extract: 'Extracting recipients', reconcile: 'Reconciling' };
+function setBusy(b) { $('capture-btn').disabled = b; $('extract-btn').disabled = b; }
+function renderStatus(rs) {
+  if (!rs || !rs.active) { banner.textContent = 'Idle — no run in progress.'; banner.className = 'hint'; setBusy(false); return; }
+  const ago = rs.lastActivityAt ? Math.round((Date.now() - rs.lastActivityAt) / 1000) : null;
+  let t = `● ${LABELS[rs.active] || rs.active}…`;
+  if (rs.active === 'capture' && rs.count != null) t += ` (${rs.count} in dataset)`;
+  if (ago != null) t += ` · last activity ${ago}s ago${ago > 120 ? ' — may be stalled' : ''}`;
+  banner.textContent = t;
+  banner.className = 'running';
+  setBusy(true);
+}
+function pollStatus() { chrome.runtime.sendMessage({ type: 'status/get' }, (rs) => { if (!chrome.runtime.lastError) renderStatus(rs); }); }
+pollStatus();
+setInterval(pollStatus, 3000);
+
 // init
 chrome.runtime.sendMessage({ type: 'ping' }, (r) => {
   status.textContent = r && r.ok ? 'Ready.' : 'Service worker not responding.';
@@ -52,15 +70,13 @@ chrome.runtime.onMessage.addListener((msg) => {
     else logLine(progress, `✓ #${msg.checkNumber} (${msg.date || ''})`);
   } else if (msg.type === 'capture/done') {
     logLine(progress, `Captured ${msg.captured} this run.`);
-    $('capture-btn').disabled = false;
     status.textContent = msg.error ? 'Error: ' + msg.error : `Done — ${msg.captured} new check(s) captured.`;
-    refreshDataset();
+    refreshDataset(); pollStatus();
   } else if (msg.type === 'extract/progress') {
     logLine(progress, `${msg.done}/${msg.total} · #${msg.checkNumber} → ${msg.recipient || '∅'} [${msg.confidence}]`);
   } else if (msg.type === 'extract/done') {
-    $('extract-btn').disabled = false;
     status.textContent = msg.error ? 'Error: ' + msg.error : `Extracted ${msg.extracted} recipient(s).`;
-    refreshDataset();
+    refreshDataset(); pollStatus();
   }
 });
 

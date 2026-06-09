@@ -10,6 +10,7 @@ const DEFAULTS = {
   monarchAuth: null, // { clientId, accessToken, refreshToken, expiresAt, scopes }
   runLog: [],
   dataset: [], // working per-check records (accumulates across runs, deduped by checkNumber)
+  runState: { active: null, count: 0, lastActivityAt: 0 }, // active: 'capture'|'extract'|'reconcile'|null
 };
 
 export async function get(key) {

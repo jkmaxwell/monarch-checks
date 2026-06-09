@@ -14,3 +14,4 @@ select { font: inherit; padding: 6px; border-radius: 6px; border: 1px solid #888
 .log li { padding: 2px 0; border-bottom: 1px solid #8881; font-variant-numeric: tabular-nums; }
 .log li.err { color: #dc2626; }
 button:disabled { opacity: .5; cursor: default; }
+.running { color: #16a34a; font-weight: 600; font-size: 13px; }

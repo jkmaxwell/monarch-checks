@@ -30,16 +30,21 @@ async function handle(msg, sender) {
       return await storage.get('dataset');
     case 'dataset/setRecipient':
       return await setRecipient(msg);
+    case 'status/get':
+      return await storage.get('runState');
 
     case 'capture/start':
       startCaptureDetached(msg); // detached; content script broadcasts capture/done
       return { started: true };
     case 'capture/check':
       await onCheckCaptured(msg);
+      await bumpRun((await storage.get('dataset')).length);
       return { ok: true };
     case 'capture/progress':
+      return { ok: true };
     case 'capture/done':
-      return { ok: true }; // dashboard listens to these for UI; SW persists via capture/check
+      await setRun(null); // clears even if the SW restarted mid-capture
+      return { ok: true };
 
     case 'extract/start':
       startExtractDetached(); // detached; broadcasts extract/done
@@ -62,6 +67,18 @@ async function handle(msg, sender) {
     default:
       return { error: 'unknown message: ' + msg?.type };
   }
+}
+
+// Run-state so the popup can show whether a long op is active + a heartbeat.
+async function setRun(active) {
+  const rs = await storage.get('runState');
+  await storage.set('runState', { active, count: rs.count || 0, lastActivityAt: Date.now() });
+}
+async function bumpRun(count) {
+  const rs = await storage.get('runState');
+  rs.lastActivityAt = Date.now();
+  if (count != null) rs.count = count;
+  await storage.set('runState', rs);
 }
 
 // Safe broadcast: when no page is listening (popup/review closed),
@@ -87,6 +104,7 @@ function keepAlive(on) {
 // 'reconcile/done' so the UI doesn't depend on a long-held sendResponse.
 async function startReconcile(dryRun) {
   keepAlive(true);
+  await setRun('reconcile');
   try {
     const res = await reconcile.run({ dryRun });
     const log = res.log || [];
@@ -99,29 +117,34 @@ async function startReconcile(dryRun) {
   } catch (e) {
     broadcast({ type: 'reconcile/done', dryRun, error: String((e && e.message) || e) });
   } finally {
+    await setRun(null);
     keepAlive(false);
   }
 }
 
 async function startCaptureDetached(msg) {
   keepAlive(true);
+  await setRun('capture');
   try {
     await startCapture(msg);
   } catch (e) {
     broadcast({ type: 'capture/done', captured: 0, error: String((e && e.message) || e) });
   } finally {
+    await setRun(null);
     keepAlive(false);
   }
 }
 
 async function startExtractDetached() {
   keepAlive(true);
+  await setRun('extract');
   try {
     const res = await runExtract();
     broadcast({ type: 'extract/done', extracted: res.extracted });
   } catch (e) {
     broadcast({ type: 'extract/done', extracted: 0, error: String((e && e.message) || e) });
   } finally {
+    await setRun(null);
     keepAlive(false);
   }
 }
@@ -223,6 +246,7 @@ async function runExtract() {
     }
     done++;
     await storage.set('dataset', list); // checkpoint each
+    await bumpRun();
     broadcast({
       type: 'extract/progress', done, total: todo.length,
       checkNumber: r.checkNumber, recipient: r.recipient, confidence: r.confidence,
