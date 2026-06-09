@@ -18,7 +18,10 @@ function windowAround(dateStr, days) {
   const e = new Date(d); e.setDate(d.getDate() + days);
   return { start: iso(s), end: iso(e) };
 }
-function progress(p) { try { chrome.runtime.sendMessage({ type: 'reconcile/progress', ...p }); } catch {} }
+function progress(p) {
+  // callback form + lastError so a closed UI doesn't leave an unhandled rejection
+  try { chrome.runtime.sendMessage({ type: 'reconcile/progress', ...p }, () => void chrome.runtime.lastError); } catch {}
+}
 const txList = (r) => (r && Array.isArray(r.transactions) ? r.transactions : []);
 const merList = (r) => (r && Array.isArray(r.merchants) ? r.merchants : []);
 

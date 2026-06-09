@@ -64,6 +64,13 @@ async function handle(msg, sender) {
   }
 }
 
+// Safe broadcast: when no page is listening (popup/review closed),
+// chrome.runtime.sendMessage rejects with "receiving end does not exist" — using
+// the callback form and consuming lastError swallows it.
+function broadcast(msg) {
+  try { chrome.runtime.sendMessage(msg, () => void chrome.runtime.lastError); } catch {}
+}
+
 // Keep the MV3 service worker alive during long runs (each API call resets the
 // ~30s idle timer); in-flight fetches help too, this covers the gaps.
 let keepAliveTimer = null;
@@ -84,13 +91,13 @@ async function startReconcile(dryRun) {
     const res = await reconcile.run({ dryRun });
     const log = res.log || [];
     const count = (s) => log.filter((e) => (e.status || '').startsWith(s)).length;
-    chrome.runtime.sendMessage({
+    broadcast({
       type: 'reconcile/done', dryRun,
       written: count('written'), would: count('would'), skipped: count('skipped'),
       flagged: count('flagged'), merges: (res.merges || []).length,
     });
   } catch (e) {
-    chrome.runtime.sendMessage({ type: 'reconcile/done', dryRun, error: String((e && e.message) || e) });
+    broadcast({ type: 'reconcile/done', dryRun, error: String((e && e.message) || e) });
   } finally {
     keepAlive(false);
   }
@@ -101,7 +108,7 @@ async function startCaptureDetached(msg) {
   try {
     await startCapture(msg);
   } catch (e) {
-    chrome.runtime.sendMessage({ type: 'capture/done', captured: 0, error: String((e && e.message) || e) });
+    broadcast({ type: 'capture/done', captured: 0, error: String((e && e.message) || e) });
   } finally {
     keepAlive(false);
   }
@@ -111,9 +118,9 @@ async function startExtractDetached() {
   keepAlive(true);
   try {
     const res = await runExtract();
-    chrome.runtime.sendMessage({ type: 'extract/done', extracted: res.extracted });
+    broadcast({ type: 'extract/done', extracted: res.extracted });
   } catch (e) {
-    chrome.runtime.sendMessage({ type: 'extract/done', extracted: 0, error: String((e && e.message) || e) });
+    broadcast({ type: 'extract/done', extracted: 0, error: String((e && e.message) || e) });
   } finally {
     keepAlive(false);
   }
@@ -216,7 +223,7 @@ async function runExtract() {
     }
     done++;
     await storage.set('dataset', list); // checkpoint each
-    chrome.runtime.sendMessage({
+    broadcast({
       type: 'extract/progress', done, total: todo.length,
       checkNumber: r.checkNumber, recipient: r.recipient, confidence: r.confidence,
     });
