@@ -55,6 +55,7 @@ $('rows').addEventListener('input', (e) => {
     await send({ type: 'dataset/setRecipient', checkNumber: check, recipient: val, confidence: 'high' });
     const rec = records.find((r) => String(r.checkNumber) === String(check));
     if (rec) { rec.recipient = val.trim(); rec.confidence = 'high'; }
+    buildDatalist(); // new/corrected names become autocomplete suggestions immediately
     const row = input.closest('tr');
     row.classList.remove('needs-review');
     const badge = row.querySelector('.badge');
