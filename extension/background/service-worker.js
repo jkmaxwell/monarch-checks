@@ -6,6 +6,7 @@ import * as idb from '../lib/idb.js';
 import { b64ToBlob } from '../lib/util.js';
 import { extractRecipient } from './anthropic.js';
 import * as mcp from './mcp-client.js';
+import * as monarch from './monarch.js';
 
 chrome.runtime.onInstalled.addListener(() => console.log('Ally Checks installed'));
 
@@ -49,6 +50,8 @@ async function handle(msg, sender) {
       return await mcp.revoke();
     case 'monarch/tools':
       return await mcp.listTools();
+    case 'monarch/probe':
+      return await probeMonarch(msg);
 
     default:
       return { error: 'unknown message: ' + msg?.type };
@@ -97,6 +100,27 @@ async function onCheckCaptured({ record, stripB64 }) {
   if (!list.some((r) => r.checkNumber === record.checkNumber)) list.push(record);
   await storage.set('dataset', list);
   await storage.markProcessed(record.checkNumber);
+}
+
+// Probe Monarch to reveal the real transaction/merchant result shapes (used to
+// finalize the reconcile parsing). Reads only; writes nothing.
+async function probeMonarch({ checkNumber }) {
+  const ds = await storage.get('dataset');
+  const rec = checkNumber ? ds.find((r) => String(r.checkNumber) === String(checkNumber)) : ds[ds.length - 1];
+  if (!rec) throw new Error('No dataset record to probe — capture some checks first.');
+  const pad = (n) => String(n).padStart(2, '0');
+  const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const d = new Date(rec.date + 'T00:00:00');
+  const start = new Date(d); start.setDate(d.getDate() - 10);
+  const end = new Date(d); end.setDate(d.getDate() + 10);
+
+  const txByNumber = await monarch.getTransactions({
+    start_date: iso(start), end_date: iso(end),
+    filters: { transaction_type: 'All', search: String(rec.checkNumber) },
+    include_details: true,
+  });
+  const merchants = await monarch.getMerchants(rec.recipient || 'Jane Doe', 10);
+  return { check: rec, txByNumber, merchants };
 }
 
 async function setRecipient({ checkNumber, recipient, confidence }) {

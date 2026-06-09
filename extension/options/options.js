@@ -36,6 +36,13 @@ document.getElementById('monarch-tools').addEventListener('click', async () => {
   toolsOut.textContent = r && r.error ? 'Error: ' + r.error : JSON.stringify(r, null, 2);
 });
 
+document.getElementById('monarch-probe').addEventListener('click', async () => {
+  toolsOut.style.display = 'block';
+  toolsOut.textContent = 'Probing a check against Monarch (read-only)…';
+  const r = await send({ type: 'monarch/probe' });
+  toolsOut.textContent = r && r.error ? 'Error: ' + r.error : JSON.stringify(r, null, 2);
+});
+
 document.getElementById('save').addEventListener('click', () => {
   const partial = {
     anthropicApiKey: keyInput.value.trim(),
