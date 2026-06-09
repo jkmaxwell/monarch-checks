@@ -173,14 +173,21 @@
         break;
       }
       done.add(next.checkNumber);
-      try {
-        const out = await processCheck(next.checkNumber);
-        send({ type: 'capture/check', record: out.record, stripB64: out.stripB64 });
-        captured++;
-        send({ type: 'capture/progress', captured, checkNumber: next.checkNumber, date: next.dateText });
-      } catch (e) {
-        send({ type: 'capture/progress', captured, error: `#${next.checkNumber}: ${e.message}` });
+      let ok = false, lastErr;
+      for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
+        try {
+          const out = await processCheck(next.checkNumber);
+          send({ type: 'capture/check', record: out.record, stripB64: out.stripB64 });
+          captured++;
+          ok = true;
+          send({ type: 'capture/progress', captured, checkNumber: next.checkNumber, date: next.dateText });
+        } catch (e) {
+          lastErr = e;
+          await closeModal(); // clear any half-open state before retrying
+          await sleep(1500);
+        }
       }
+      if (!ok) send({ type: 'capture/progress', captured, error: `#${next.checkNumber}: ${lastErr.message} (3 attempts)` });
       await sleep(800);
     }
     send({ type: 'capture/done', captured });
