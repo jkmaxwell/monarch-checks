@@ -87,4 +87,40 @@ $('export').addEventListener('click', () => {
   $('status').textContent = `Exported ${clean.length} checks.`;
 });
 
+// --- reconcile (Phase 4) ---
+const reconDiv = $('recon');
+const reconLog = $('recon-log');
+function reconLine(entry) {
+  const li = document.createElement('li');
+  const st = entry.status || '';
+  li.className = st === 'written' ? 'w' : st === 'skipped' ? 's' : st.startsWith('would') ? 'p' : 'f';
+  li.textContent =
+    `#${entry.checkNumber} ${entry.recipient || ''} — ${st}` +
+    (entry.flagReason ? ` (${entry.flagReason})` : '') +
+    (entry.flag ? ` [${entry.flag}]` : '');
+  reconLog.prepend(li);
+}
+async function runReconcile(dryRun) {
+  reconDiv.hidden = false;
+  reconLog.innerHTML = '';
+  $('recon-summary').textContent = dryRun ? 'Dry run — computing, no writes…' : 'Reconciling — writing to Monarch…';
+  $('dryrun').disabled = true; $('reconcile').disabled = true;
+  const res = await send({ type: 'reconcile/run', dryRun });
+  $('dryrun').disabled = false; $('reconcile').disabled = false;
+  if (res && res.error) { $('recon-summary').textContent = 'Error: ' + res.error; return; }
+  const log = (res && res.log) || [];
+  const c = (s) => log.filter((e) => (e.status || '').startsWith(s)).length;
+  $('recon-summary').textContent =
+    `${dryRun ? 'Dry run' : 'Done'}: ${c('written')} written, ${c('would')} would-write, ` +
+    `${c('skipped')} skipped, ${c('flagged')} flagged · ${(res.merges || []).length} merchant merge(s).`;
+}
+$('dryrun').addEventListener('click', () => runReconcile(true));
+$('reconcile').addEventListener('click', () => {
+  if (!confirm('This writes merchant + category changes to your LIVE Monarch account. Run a Dry run first if you haven’t. Continue?')) return;
+  runReconcile(false);
+});
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg && msg.type === 'reconcile/progress' && msg.entry) reconLine(msg.entry);
+});
+
 load();

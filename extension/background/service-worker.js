@@ -7,6 +7,7 @@ import { b64ToBlob } from '../lib/util.js';
 import { extractRecipient } from './anthropic.js';
 import * as mcp from './mcp-client.js';
 import * as monarch from './monarch.js';
+import * as reconcile from './reconcile.js';
 
 chrome.runtime.onInstalled.addListener(() => console.log('Ally Checks installed'));
 
@@ -52,6 +53,8 @@ async function handle(msg, sender) {
       return await mcp.listTools();
     case 'monarch/probe':
       return await probeMonarch(msg);
+    case 'reconcile/run':
+      return await reconcile.run({ dryRun: !!msg.dryRun });
 
     default:
       return { error: 'unknown message: ' + msg?.type };

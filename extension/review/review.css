@@ -18,4 +18,14 @@ td.num, td.amt, td.date { white-space: nowrap; font-variant-numeric: tabular-num
 .badge.low { background: #dc262622; color: #dc2626; }
 tr.needs-review { background: #d977060e; }
 tr.needs-review td.rec input { border-color: #d97706; }
+button.secondary { background: transparent; color: inherit; }
+button:disabled { opacity: .5; cursor: default; }
+#recon { padding: 8px 20px 24px; }
+#recon h2 { font-size: 15px; }
+.reconlog { list-style: none; margin: 8px 0 0; padding: 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+.reconlog li { padding: 3px 0; border-bottom: 1px solid #8881; }
+.reconlog li.w { color: #16a34a; }
+.reconlog li.s { color: #8a8a8a; }
+.reconlog li.p { color: #2563eb; }
+.reconlog li.f { color: #dc2626; }
 footer { position: fixed; bottom: 0; left: 0; right: 0; background: Canvas; border-top: 1px solid #8884; padding: 12px 20px; }

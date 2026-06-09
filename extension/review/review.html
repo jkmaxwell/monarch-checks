@@ -10,7 +10,9 @@
     <h1>Verify check recipients</h1>
     <span class="hint"><span id="count">0</span> checks · highlighted rows need review · edits save automatically</span>
     <span class="spacer"></span>
-    <button id="export">Export CSV + JSON</button>
+    <button id="dryrun" class="secondary">Dry run (Monarch)</button>
+    <button id="reconcile">Reconcile to Monarch</button>
+    <button id="export" class="secondary">Export</button>
   </header>
   <table>
     <thead>
@@ -19,6 +21,11 @@
     <tbody id="rows"></tbody>
   </table>
   <datalist id="recipient-list"></datalist>
+  <div id="recon" hidden>
+    <h2>Reconciliation</h2>
+    <p class="hint" id="recon-summary"></p>
+    <ul id="recon-log" class="reconlog"></ul>
+  </div>
   <footer><span class="hint" id="status"></span></footer>
   <script type="module" src="review.js"></script>
 </body>
