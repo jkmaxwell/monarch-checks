@@ -126,16 +126,21 @@ function headers(token) {
 }
 
 function parseSse(text) {
+  // SSE: events separated by a blank line; an event's data is the concatenation
+  // of its `data:` lines. Handle CRLF or LF.
   let last = null;
-  for (const line of text.split('\n')) {
-    const m = line.match(/^data:\s?(.*)$/);
-    if (!m) continue;
+  for (const ev of text.split(/\r?\n\r?\n/)) {
+    const dataLines = ev
+      .split(/\r?\n/)
+      .filter((l) => l.startsWith('data:'))
+      .map((l) => l.slice(5).replace(/^ /, ''));
+    if (!dataLines.length) continue;
     try {
-      const j = JSON.parse(m[1]);
+      const j = JSON.parse(dataLines.join('\n'));
       if (j && (j.result !== undefined || j.error !== undefined || j.id !== undefined)) last = j;
     } catch {}
   }
-  if (!last) throw new Error('No JSON-RPC message in SSE response');
+  if (!last) throw new Error('No JSON-RPC in SSE response: ' + text.slice(0, 200));
   return last;
 }
 
