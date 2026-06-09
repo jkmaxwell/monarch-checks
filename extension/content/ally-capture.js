@@ -12,7 +12,7 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const DATE_RE = /[A-Za-z]{3,}\s+\d{1,2},\s+\d{4}/;
   const MONTHS = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
-  const CROP = { x: 80, y: 150, w: 780, h: 95, baseW: 1176 }; // validated region
+  const CROP = { x: 80, y: 150, w: 780, h: 95, baseW: 1176, baseH: 512 }; // validated region
 
   const send = (m) => { try { chrome.runtime.sendMessage(m); } catch {} };
   const parseAmount = (t) => String(t == null ? '' : t).replace(/[^0-9.]/g, '');
@@ -123,11 +123,15 @@
 
   // --- crop in-page (full image never leaves the tab) ---
   function cropStrip(img) {
-    const scale = img.naturalWidth / CROP.baseW;
-    const w = Math.round(CROP.w * scale), h = Math.round(CROP.h * scale);
+    // Scale per-axis so the crop stays proportional even if the check image has a
+    // different aspect ratio (otherwise a fixed y lands on the wrong row).
+    const sx = img.naturalWidth / CROP.baseW;
+    const sy = img.naturalHeight / CROP.baseH;
+    const x = Math.round(CROP.x * sx), y = Math.round(CROP.y * sy);
+    const w = Math.round(CROP.w * sx), h = Math.round(CROP.h * sy);
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
-    c.getContext('2d').drawImage(img, Math.round(CROP.x * scale), Math.round(CROP.y * scale), w, h, 0, 0, w, h);
+    c.getContext('2d').drawImage(img, x, y, w, h, 0, 0, w, h);
     return new Promise((res) => c.toBlob((b) => res(b), 'image/png'));
   }
   function blobToB64(blob) {

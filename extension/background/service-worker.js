@@ -33,6 +33,8 @@ async function handle(msg, sender) {
     case 'status/get':
       return await storage.get('runState');
 
+    case 'capture/recheck':
+      return await recheckOne(msg); // drop a check so the next capture re-fetches it
     case 'capture/start':
       startCaptureDetached(msg); // detached; content script broadcasts capture/done
       return { started: true };
@@ -181,6 +183,18 @@ async function startCapture({ windowMonths }) {
     cutoffISO,
     processed: history.processed,
   });
+}
+
+// Remove a check from dedup history + dataset so a subsequent capture re-fetches
+// and re-crops it (its strip is overwritten; recipient resets so Extract re-reads).
+async function recheckOne({ checkNumber }) {
+  const n = String(checkNumber);
+  const h = await storage.get('history');
+  h.processed = h.processed.filter((x) => x !== n);
+  await storage.set('history', h);
+  const ds = await storage.get('dataset');
+  await storage.set('dataset', ds.filter((r) => String(r.checkNumber) !== n));
+  return { ok: true, removed: n };
 }
 
 async function onCheckCaptured({ record, stripB64 }) {

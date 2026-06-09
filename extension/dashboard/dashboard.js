@@ -43,6 +43,16 @@ $('open-options').addEventListener('click', (e) => {
   e.preventDefault();
   chrome.tabs.create({ url: chrome.runtime.getURL('options/options.html') });
 });
+$('recheck-btn').addEventListener('click', () => {
+  const n = $('recheck-num').value.trim();
+  if (!n) return;
+  chrome.runtime.sendMessage({ type: 'capture/recheck', checkNumber: n }, () => {
+    progress.innerHTML = '';
+    status.textContent = `Re-capturing #${n}…`;
+    $('capture-btn').disabled = true;
+    chrome.runtime.sendMessage({ type: 'capture/start', windowMonths: Number($('window').value) }, () => void chrome.runtime.lastError);
+  });
+});
 $('refresh').addEventListener('click', refreshDataset);
 $('review-btn').addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('review/review.html') });
