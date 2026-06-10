@@ -43,6 +43,12 @@ document.getElementById('monarch-probe').addEventListener('click', async () => {
   toolsOut.textContent = r && r.error ? 'Error: ' + r.error : JSON.stringify(r, null, 2);
 });
 
+document.getElementById('reset').addEventListener('click', async () => {
+  if (!confirm('Clear ALL captured checks, strips, and history? (Your API key, Monarch connection, and name map are kept.)')) return;
+  await send({ type: 'data/reset' });
+  status.textContent = 'Cleared — ready to capture fresh.';
+});
+
 document.getElementById('save').addEventListener('click', () => {
   const partial = {
     anthropicApiKey: keyInput.value.trim(),

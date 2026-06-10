@@ -32,6 +32,8 @@ async function handle(msg, sender) {
       return await setRecipient(msg);
     case 'status/get':
       return await storage.get('runState');
+    case 'data/reset':
+      return await resetData();
 
     case 'capture/recheck':
       return await recheckOne(msg); // drop a check so the next capture re-fetches it
@@ -183,6 +185,16 @@ async function startCapture({ windowMonths }) {
     cutoffISO,
     processed: history.processed,
   });
+}
+
+// Wipe captured checks/strips/history to start clean. Keeps settings, the Monarch
+// connection, and the normalization map.
+async function resetData() {
+  await storage.set('dataset', []);
+  await storage.set('history', { processed: [], newestCheckNumber: null });
+  await storage.set('runState', { active: null, count: 0, lastActivityAt: 0 });
+  try { await idb.clearStrips(); } catch {}
+  return { ok: true };
 }
 
 // Remove a check from dedup history + dataset so a subsequent capture re-fetches
