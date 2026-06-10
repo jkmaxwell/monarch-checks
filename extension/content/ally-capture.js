@@ -90,7 +90,7 @@
       const front = pick('frontCheckImage');
       if (front) return front;
       const modal = document.querySelector('[data-testid="transaction-detail-modal"]');
-      if (modal && /can.?t load your check images/i.test(modal.textContent || '')) return 'RATE_LIMITED';
+      if (modal && /can.?t load your check images/i.test(modal.textContent || '')) return 'IMAGE_NOT_READY';
       await sleep(2000);
     }
     return null;
@@ -175,7 +175,7 @@
   async function processCheck(checkNumber) {
     if (!(await openByNumber(checkNumber))) throw new Error('modal did not open');
     const front = await waitForFrontImage(180000);
-    if (front === 'RATE_LIMITED') { await closeModal(); throw new Error('RATE_LIMITED'); }
+    if (front === 'IMAGE_NOT_READY') { await closeModal(); throw new Error('IMAGE_NOT_READY'); }
     if (!front) { await closeModal(); throw new Error('images timed out'); }
     const meta = readMetadata();
     if (!meta) { await closeModal(); throw new Error('no metadata'); }
@@ -210,8 +210,8 @@
         }
         break;
       }
-      done.add(next.checkNumber);
-      let ok = false, lastErr, rateLimited = false;
+      done.add(next.checkNumber); // skip within this run; only successful capture marks it processed (so not-ready/failed retry next run)
+      let ok = false, lastErr, notReady = false;
       for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
         try {
           const out = await processCheck(next.checkNumber);
@@ -221,17 +221,18 @@
           send({ type: 'capture/progress', captured, checkNumber: next.checkNumber, date: next.dateText });
         } catch (e) {
           lastErr = e;
-          if (e.message === 'RATE_LIMITED') { rateLimited = true; break; }
+          if (e.message === 'IMAGE_NOT_READY') { notReady = true; await closeModal(); break; }
           await closeModal(); // clear any half-open state before retrying
           await sleep(1500);
         }
       }
-      if (rateLimited) {
-        await closeModal();
-        send({ type: 'capture/progress', captured, error: 'Ally is rate-limiting check images — stopping. Try again later.' });
-        break; // stop the whole walk; resume later (dedup continues from here)
+      if (notReady) {
+        // Too recent — images not scanned yet. Skip and continue to older checks;
+        // a future capture will pick this one up once its images post.
+        send({ type: 'capture/progress', captured, error: `#${next.checkNumber}: images not posted yet — will retry next run` });
+      } else if (!ok) {
+        send({ type: 'capture/progress', captured, error: `#${next.checkNumber}: ${lastErr.message} (3 attempts)` });
       }
-      if (!ok) send({ type: 'capture/progress', captured, error: `#${next.checkNumber}: ${lastErr.message} (3 attempts)` });
       await sleep(800);
     }
     send({ type: 'capture/done', captured });
