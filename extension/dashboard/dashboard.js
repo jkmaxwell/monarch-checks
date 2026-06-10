@@ -48,9 +48,10 @@ $('recheck-btn').addEventListener('click', () => {
   if (!n) return;
   chrome.runtime.sendMessage({ type: 'capture/recheck', checkNumber: n }, () => {
     progress.innerHTML = '';
-    status.textContent = `Re-capturing #${n}…`;
+    status.textContent = `Re-capturing #${n}… (scanning all history to find it)`;
     $('capture-btn').disabled = true;
-    chrome.runtime.sendMessage({ type: 'capture/start', windowMonths: Number($('window').value) }, () => void chrome.runtime.lastError);
+    // Always all-time for a targeted re-capture so the window setting can't strand it.
+    chrome.runtime.sendMessage({ type: 'capture/start', windowMonths: 0 }, () => void chrome.runtime.lastError);
   });
 });
 $('refresh').addEventListener('click', refreshDataset);
