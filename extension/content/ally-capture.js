@@ -12,7 +12,9 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const DATE_RE = /[A-Za-z]{3,}\s+\d{1,2},\s+\d{4}/;
   const MONTHS = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
-  const CROP = { x: 80, y: 150, w: 780, h: 95, baseW: 1176, baseH: 512 }; // validated region
+  // Payee strip as fractions of the detected CHECK box (not the image frame), so
+  // it works regardless of image size or how the check is inset/margined.
+  const STRIP = { fx: 80 / 1176, fy: 0.27, fw: 780 / 1176, fh: 0.24 };
 
   const send = (m) => { try { chrome.runtime.sendMessage(m); } catch {} };
   const parseAmount = (t) => String(t == null ? '' : t).replace(/[^0-9.]/g, '');
@@ -122,13 +124,39 @@
   }
 
   // --- crop in-page (full image never leaves the tab) ---
+  // Find the check's black border box (fractions of the image) via dark-row/column
+  // projection. Returns null if it can't find a confident box.
+  function detectCheckBox(img) {
+    const W = img.naturalWidth, H = img.naturalHeight;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0);
+    let data;
+    try { data = ctx.getImageData(0, 0, W, H).data; } catch { return null; }
+    const gray = (x, y) => { const i = (y * W + x) * 4; return data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114; };
+    const rowD = new Float32Array(H), colD = new Float32Array(W);
+    for (let y = 0; y < H; y++) { let n = 0, t = 0; for (let x = 0; x < W; x += 2) { t++; if (gray(x, y) < 150) n++; } rowD[y] = n / t; }
+    for (let x = 0; x < W; x++) { let n = 0, t = 0; for (let y = 0; y < H; y += 2) { t++; if (gray(x, y) < 150) n++; } colD[x] = n / t; }
+    // first index that starts a run of >=2 over-threshold entries (skips 1px edge noise)
+    const scan = (arr, n, fwd) => {
+      let run = 0;
+      if (fwd) { for (let i = 0; i < n; i++) { if (arr[i] > 0.35) { if (++run >= 2) return i - 1; } else run = 0; } }
+      else { for (let i = n - 1; i >= 0; i--) { if (arr[i] > 0.35) { if (++run >= 2) return i + 1; } else run = 0; } }
+      return -1;
+    };
+    const top = scan(rowD, H, true), bottom = scan(rowD, H, false);
+    const left = scan(colD, W, true), right = scan(colD, W, false);
+    if (top < 0 || bottom < 0 || left < 0 || right < 0 || bottom - top < H * 0.3 || right - left < W * 0.3) return null;
+    return { x: left / W, y: top / H, w: (right - left) / W, h: (bottom - top) / H };
+  }
+
   function cropStrip(img) {
-    // Scale per-axis so the crop stays proportional even if the check image has a
-    // different aspect ratio (otherwise a fixed y lands on the wrong row).
-    const sx = img.naturalWidth / CROP.baseW;
-    const sy = img.naturalHeight / CROP.baseH;
-    const x = Math.round(CROP.x * sx), y = Math.round(CROP.y * sy);
-    const w = Math.round(CROP.w * sx), h = Math.round(CROP.h * sy);
+    const box = detectCheckBox(img) || { x: 0, y: 0, w: 1, h: 1 }; // fallback: whole frame
+    const x = Math.round((box.x + STRIP.fx * box.w) * img.naturalWidth);
+    const y = Math.round((box.y + STRIP.fy * box.h) * img.naturalHeight);
+    const w = Math.round(STRIP.fw * box.w * img.naturalWidth);
+    const h = Math.round(STRIP.fh * box.h * img.naturalHeight);
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
     c.getContext('2d').drawImage(img, x, y, w, h, 0, 0, w, h);
