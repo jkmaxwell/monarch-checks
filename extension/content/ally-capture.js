@@ -168,7 +168,10 @@
       if (!next) {
         const dates = rows.map((r) => r.date).filter(Boolean);
         const oldest = dates.length ? new Date(Math.min(...dates.map((d) => d.getTime()))) : null;
-        if (cutoff && oldest && oldest > cutoff && pages < MAX_PAGES) {
+        // With a cutoff, page until the oldest loaded passes it. All-time (no
+        // cutoff): keep paging until there's no more history (View More gone).
+        const needMore = cutoff ? oldest && oldest > cutoff : true;
+        if (needMore && pages < MAX_PAGES) {
           const grew = await clickViewMore();
           pages++;
           if (!grew) break;
