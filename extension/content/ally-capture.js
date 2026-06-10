@@ -89,6 +89,8 @@
       if (btn && btn.getAttribute('aria-expanded') === 'false') btn.click();
       const front = pick('frontCheckImage');
       if (front) return front;
+      const modal = document.querySelector('[data-testid="transaction-detail-modal"]');
+      if (modal && /can.?t load your check images/i.test(modal.textContent || '')) return 'RATE_LIMITED';
       await sleep(2000);
     }
     return null;
@@ -173,6 +175,7 @@
   async function processCheck(checkNumber) {
     if (!(await openByNumber(checkNumber))) throw new Error('modal did not open');
     const front = await waitForFrontImage(180000);
+    if (front === 'RATE_LIMITED') { await closeModal(); throw new Error('RATE_LIMITED'); }
     if (!front) { await closeModal(); throw new Error('images timed out'); }
     const meta = readMetadata();
     if (!meta) { await closeModal(); throw new Error('no metadata'); }
@@ -208,7 +211,7 @@
         break;
       }
       done.add(next.checkNumber);
-      let ok = false, lastErr;
+      let ok = false, lastErr, rateLimited = false;
       for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
         try {
           const out = await processCheck(next.checkNumber);
@@ -218,9 +221,15 @@
           send({ type: 'capture/progress', captured, checkNumber: next.checkNumber, date: next.dateText });
         } catch (e) {
           lastErr = e;
+          if (e.message === 'RATE_LIMITED') { rateLimited = true; break; }
           await closeModal(); // clear any half-open state before retrying
           await sleep(1500);
         }
+      }
+      if (rateLimited) {
+        await closeModal();
+        send({ type: 'capture/progress', captured, error: 'Ally is rate-limiting check images — stopping. Try again later.' });
+        break; // stop the whole walk; resume later (dedup continues from here)
       }
       if (!ok) send({ type: 'capture/progress', captured, error: `#${next.checkNumber}: ${lastErr.message} (3 attempts)` });
       await sleep(800);
