@@ -90,7 +90,9 @@
       const front = pick('frontCheckImage');
       if (front) return front;
       const modal = document.querySelector('[data-testid="transaction-detail-modal"]');
-      if (modal && /can.?t load your check images/i.test(modal.textContent || '')) return 'IMAGE_NOT_READY';
+      const mt = modal ? modal.textContent || '' : '';
+      if (/can.?t load your check images/i.test(mt)) return 'IMAGE_NOT_READY';
+      if (/information isn.?t available right now/i.test(mt)) return 'UNAVAILABLE';
       send({ type: 'capture/heartbeat' }); // keep the popup's "last activity" fresh during the long image wait
       await sleep(2000);
     }
@@ -177,6 +179,7 @@
     if (!(await openByNumber(checkNumber))) throw new Error('modal did not open');
     const front = await waitForFrontImage(180000);
     if (front === 'IMAGE_NOT_READY') { await closeModal(); throw new Error('IMAGE_NOT_READY'); }
+    if (front === 'UNAVAILABLE') { await closeModal(); throw new Error('UNAVAILABLE'); }
     if (!front) { await closeModal(); throw new Error('images timed out'); }
     const meta = readMetadata();
     if (!meta) { await closeModal(); throw new Error('no metadata'); }
@@ -212,7 +215,7 @@
         break;
       }
       done.add(next.checkNumber); // skip within this run; only successful capture marks it processed (so not-ready/failed retry next run)
-      let ok = false, lastErr, notReady = false;
+      let ok = false, lastErr, notReady = false, unavailable = false;
       for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
         try {
           const out = await processCheck(next.checkNumber);
@@ -223,13 +226,18 @@
         } catch (e) {
           lastErr = e;
           if (e.message === 'IMAGE_NOT_READY') { notReady = true; await closeModal(); break; }
+          if (e.message === 'UNAVAILABLE') { unavailable = true; await closeModal(); break; }
           await closeModal(); // clear any half-open state before retrying
           await sleep(1500);
         }
       }
+      if (unavailable) {
+        // Ally throttling the detail endpoint — stop; resume later (dedup continues).
+        send({ type: 'capture/progress', captured, error: 'Ally: "information isn\'t available right now" — it\'s throttling. Stopping; try again later.' });
+        break;
+      }
       if (notReady) {
-        // Too recent — images not scanned yet. Skip and continue to older checks;
-        // a future capture will pick this one up once its images post.
+        // Too recent — images not scanned yet. Skip and continue to older checks.
         send({ type: 'capture/progress', captured, error: `#${next.checkNumber}: images not posted yet — will retry next run` });
       } else if (!ok) {
         send({ type: 'capture/progress', captured, error: `#${next.checkNumber}: ${lastErr.message} (3 attempts)` });
