@@ -46,6 +46,9 @@ async function handle(msg, sender) {
       return { ok: true };
     case 'capture/progress':
       return { ok: true };
+    case 'capture/heartbeat':
+      await bumpRun();
+      return { ok: true };
     case 'capture/done':
       await setRun(null); // clears even if the SW restarted mid-capture
       return { ok: true };

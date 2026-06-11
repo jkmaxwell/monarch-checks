@@ -91,6 +91,7 @@
       if (front) return front;
       const modal = document.querySelector('[data-testid="transaction-detail-modal"]');
       if (modal && /can.?t load your check images/i.test(modal.textContent || '')) return 'IMAGE_NOT_READY';
+      send({ type: 'capture/heartbeat' }); // keep the popup's "last activity" fresh during the long image wait
       await sleep(2000);
     }
     return null;
