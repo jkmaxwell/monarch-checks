@@ -10,6 +10,21 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
 
 let records = [];
 
+// "1800.00" -> "1,800.00" (falls back to the raw string for non-numbers)
+function fmtAmount(a) {
+  const n = Number(a);
+  return Number.isFinite(n)
+    ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : String(a == null ? '' : a);
+}
+
+// Keep the sticky column headers pinned just under the (wrap-able) header bar.
+function syncStickyOffset() {
+  const h = document.querySelector('header');
+  if (h) document.documentElement.style.setProperty('--th-top', h.offsetHeight + 'px');
+}
+window.addEventListener('resize', syncStickyOffset);
+
 async function load() {
   records = (await send({ type: 'dataset/get' })) || [];
   render();
@@ -32,16 +47,24 @@ function render() {
     if (r.confidence !== 'high' || !r.recipient) tr.className = 'needs-review';
     tr.innerHTML =
       `<td class="num">${esc(r.checkNumber)}</td>` +
-      `<td class="strip"><img alt="payee strip ${esc(r.checkNumber)}" data-check="${esc(r.checkNumber)}"></td>` +
+      `<td class="strip"><div class="frame" data-check="${esc(r.checkNumber)}">` +
+        `<span class="ph">check scan · payee strip #${esc(r.checkNumber)}</span></div></td>` +
       `<td class="rec"><input type="text" list="recipient-list" autocomplete="off" value="${esc(r.recipient || '')}" data-check="${esc(r.checkNumber)}"></td>` +
       `<td class="conf"><span class="badge ${esc(r.confidence || 'low')}">${esc(r.confidence || 'low')}</span></td>` +
-      `<td class="amt">${esc(r.amount)}</td>` +
+      `<td class="amt">${esc(fmtAmount(r.amount))}</td>` +
       `<td class="date">${esc(r.date)}</td>`;
     tbody.appendChild(tr);
   }
-  for (const img of tbody.querySelectorAll('img[data-check]')) {
-    getStrip(img.dataset.check).then((blob) => { if (blob) img.src = URL.createObjectURL(blob); });
+  for (const frame of tbody.querySelectorAll('.frame[data-check]')) {
+    getStrip(frame.dataset.check).then((blob) => {
+      if (!blob) return; // keep the hatched placeholder
+      const img = document.createElement('img');
+      img.alt = 'payee strip ' + frame.dataset.check;
+      img.src = URL.createObjectURL(blob);
+      frame.replaceChildren(img);
+    });
   }
+  syncStickyOffset();
 }
 
 // Save on commit (blur / Enter), not on every keystroke — avoids persisting a
