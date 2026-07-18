@@ -1,5 +1,10 @@
 # Ally Checks Downloader
 
+> **The current tool is the browser extension in [`extension/`](extension/README.md)**
+> (capture → extract → review → reconcile into Monarch, all client-side).
+> Everything below describes the older console-snippet downloader, kept for
+> backfills and as reference.
+
 A browser console snippet that downloads front/back check images from Ally Bank
 at full resolution and captures their metadata.
 
