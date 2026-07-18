@@ -30,9 +30,11 @@ export async function extractRecipient(stripBlob, apiKey) {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 200,
+      // Thinking tokens count against max_tokens; 200 could be eaten entirely by
+      // thinking (empty/truncated JSON). Low effort is plenty for a payee strip.
+      max_tokens: 4000,
       thinking: { type: 'adaptive' },
-      output_config: { format: { type: 'json_schema', schema: SCHEMA }, effort: 'high' },
+      output_config: { format: { type: 'json_schema', schema: SCHEMA }, effort: 'low' },
       messages: [
         {
           role: 'user',
@@ -49,8 +51,8 @@ export async function extractRecipient(stripBlob, apiKey) {
     throw new Error(`anthropic ${resp.status}: ${t.slice(0, 200)}`);
   }
   const json = await resp.json();
-  const textBlock = (json.content || []).find((b) => b.type === 'text');
-  if (!textBlock) throw new Error('no text block in response');
+  const textBlock = (json.content || []).find((b) => b.type === 'text' && b.text);
+  if (!textBlock) throw new Error('no text in response (stop_reason: ' + json.stop_reason + ')');
   const parsed = JSON.parse(textBlock.text);
   return { recipient: String(parsed.recipient || '').trim(), confidence: parsed.confidence || 'low' };
 }
