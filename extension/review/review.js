@@ -109,6 +109,9 @@ $('export').addEventListener('click', () => {
 });
 
 // --- reconcile (Phase 4) ---
+// The run log + position are persisted by the engine and POLLED here (with the
+// broadcasts as a fast path), so progress survives Dia discarding/reloading
+// this tab mid-run — a freshly opened review page picks a run up in progress.
 const reconDiv = $('recon');
 const reconLog = $('recon-log');
 function reconLine(entry) {
@@ -121,11 +124,70 @@ function reconLine(entry) {
     (entry.flag ? ` [${entry.flag}]` : '');
   reconLog.prepend(li);
 }
+
 let activeDryRun = false;
+let renderedLogCount = -1;
+function renderLogEntries(list) {
+  if (!Array.isArray(list) || list.length === renderedLogCount) return;
+  renderedLogCount = list.length;
+  reconLog.innerHTML = '';
+  for (const entry of list) reconLine(entry); // prepend → newest first
+}
+async function refreshReconLog() {
+  const list = (await send({ type: 'runlog/get' })) || [];
+  renderLogEntries(list);
+  return list;
+}
+function summarize(list, dryRun) {
+  const count = (s) => list.filter((en) => (en.status || '').startsWith(s)).length;
+  return `${dryRun ? 'Dry run' : 'Done'}: ${count('written')} written, ${count('would')} would-write, ` +
+    `${count('skipped')} skipped, ${count('flagged')} flagged.`;
+}
+
+let reconWasActive = false;
+async function pollRecon() {
+  const rs = await send({ type: 'status/get' });
+  if (rs && rs.active === 'reconcile') {
+    reconWasActive = true;
+    activeDryRun = rs.dryRun != null ? Boolean(rs.dryRun) : activeDryRun;
+    reconDiv.hidden = false;
+    $('dryrun').disabled = true; $('reconcile').disabled = true;
+    if (rs.total) {
+      const ago = rs.lastActivityAt ? Math.round((Date.now() - rs.lastActivityAt) / 1000) : null;
+      $('recon-summary').textContent =
+        `${activeDryRun ? 'Dry run' : 'Reconciling'} — check ${rs.i || 0}/${rs.total}` +
+        (rs.checkNumber ? ` (#${rs.checkNumber})` : '') +
+        (ago != null && ago > 45 ? ` · last activity ${ago}s ago — may be stalled` : '') + '…';
+    }
+    await refreshReconLog();
+  } else if (reconWasActive) {
+    // Run ended while we were watching via polls (done broadcast may have been
+    // missed) — render the final log and compute the summary from it.
+    reconWasActive = false;
+    $('dryrun').disabled = false; $('reconcile').disabled = false;
+    $('recon-summary').textContent = summarize(await refreshReconLog(), activeDryRun);
+  }
+}
+// On open: if a run isn't active but a persisted log exists, show the last
+// run's results (e.g. the dry run that finished while the tab was discarded).
+(async () => {
+  await pollRecon();
+  if (!reconWasActive) {
+    const list = await refreshReconLog();
+    if (list.length) {
+      reconDiv.hidden = false;
+      const wasDry = list.some((en) => (en.status || '').startsWith('would'));
+      $('recon-summary').textContent = 'Last run — ' + summarize(list, wasDry);
+    }
+  }
+})();
+setInterval(pollRecon, 3000);
 function runReconcile(dryRun) {
   activeDryRun = dryRun;
+  reconWasActive = true;
   reconDiv.hidden = false;
   reconLog.innerHTML = '';
+  renderedLogCount = 0; // engine clears the stored log at run start
   $('recon-summary').textContent = dryRun ? 'Dry run — computing, no writes…' : 'Reconciling — writing to Monarch…';
   $('dryrun').disabled = true; $('reconcile').disabled = true;
   // Fire-and-forget; results arrive via reconcile/progress + reconcile/done.
@@ -139,7 +201,7 @@ $('reconcile').addEventListener('click', () => {
 chrome.runtime.onMessage.addListener((msg) => {
   if (!msg) return;
   if (msg.type === 'reconcile/progress') {
-    if (msg.entry) reconLine(msg.entry);
+    if (msg.entry) refreshReconLog(); // storage is the source of truth — no double-render
     else if (msg.phase === 'check') {
       // Live per-check progress — the engine sends this before it starts each
       // check, so the page never looks dead between log entries.
@@ -147,6 +209,8 @@ chrome.runtime.onMessage.addListener((msg) => {
         `${activeDryRun ? 'Dry run' : 'Reconciling'} — check ${msg.i}/${msg.total} (#${msg.checkNumber})…`;
     }
   } else if (msg.type === 'reconcile/done') {
+    reconWasActive = false; // keep the poll from overwriting this summary
+    refreshReconLog();
     $('dryrun').disabled = false; $('reconcile').disabled = false;
     if (msg.error) {
       $('recon-summary').textContent = 'Stopped: ' + msg.error + ' ';

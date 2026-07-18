@@ -32,6 +32,8 @@ async function handle(msg, sender) {
       return await setRecipient(msg);
     case 'status/get':
       return await storage.get('runState');
+    case 'runlog/get':
+      return await storage.get('runLog');
     case 'data/reset':
       return await resetData();
     case 'data/export':

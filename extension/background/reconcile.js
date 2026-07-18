@@ -89,19 +89,26 @@ export async function run({ dryRun }) {
   const log = [];
   const touched = new Set();
   let hiddenCount = 0;
+  // Persist progress as it happens (log after every entry, position in
+  // runState) so the review page can poll it — broadcasts alone are lost when
+  // Dia discards or reloads the tab mid-run.
+  const emit = async (entry) => { log.push(entry); progress({ entry }); await storage.set('runLog', log); };
+  await storage.set('runLog', []);
+  await storage.patch('runState', { dryRun: Boolean(dryRun), total: checks.length, i: 0, checkNumber: null });
 
   for (let i = 0; i < checks.length; i++) {
     const rec = checks[i];
     const canonical = normalize(rec.recipient, map);
     const e = { checkNumber: rec.checkNumber, date: rec.date, amount: rec.amount, recipient: canonical };
     progress({ phase: 'check', i: i + 1, total: checks.length, checkNumber: rec.checkNumber });
+    await storage.patch('runState', { i: i + 1, checkNumber: rec.checkNumber, lastActivityAt: Date.now() });
 
     let loc;
     try { loc = await locate(rec); }
-    catch (err) { e.status = 'flagged'; e.flagReason = 'locate error: ' + err.message; log.push(e); progress({ entry: e }); continue; }
+    catch (err) { e.status = 'flagged'; e.flagReason = 'locate error: ' + err.message; await emit(e); continue; }
     if (loc.hidden) {
       e.status = 'flagged'; e.flagReason = 'in Monarch, but its MCP hides Plaid-connected accounts';
-      log.push(e); progress({ entry: e });
+      await emit(e);
       // Every check is on the same (hidden) account — stop instead of grinding
       // through the rest. The fix is Monarch-side: migrate off Plaid.
       if (++hiddenCount >= 3) {
@@ -114,21 +121,21 @@ export async function run({ dryRun }) {
       }
       continue;
     }
-    if (loc.notFound) { e.status = 'flagged'; e.flagReason = 'transaction not found'; log.push(e); progress({ entry: e }); continue; }
-    if (loc.ambiguous) { e.status = 'flagged'; e.flagReason = `ambiguous (${loc.ambiguous.length} same amount/date)`; log.push(e); progress({ entry: e }); continue; }
+    if (loc.notFound) { e.status = 'flagged'; e.flagReason = 'transaction not found'; await emit(e); continue; }
+    if (loc.ambiguous) { e.status = 'flagged'; e.flagReason = `ambiguous (${loc.ambiguous.length} same amount/date)`; await emit(e); continue; }
 
     const tx = loc.tx;
     e.transaction_id = tx.id; e.tier = loc.tier; e.currentMerchant = tx.merchant;
 
     if (!isGeneric(tx.merchant) && norm(tx.merchant) === norm(canonical)) {
       e.status = 'skipped'; e.flagReason = 'already assigned'; e.merchant_id = tx.merchant_id;
-      log.push(e); progress({ entry: e }); continue;
+      await emit(e); continue;
     }
 
     let mr = { merchant_id: null, created: false };
     if (!local) {
       try { mr = await resolveMerchant(canonical, dryRun); }
-      catch (err) { e.status = 'flagged'; e.flagReason = 'merchant resolve: ' + err.message; log.push(e); progress({ entry: e }); continue; }
+      catch (err) { e.status = 'flagged'; e.flagReason = 'merchant resolve: ' + err.message; await emit(e); continue; }
       e.merchant_id = mr.merchant_id; e.merchantCreated = mr.created;
     }
     touched.add(canonical);
@@ -149,9 +156,9 @@ export async function run({ dryRun }) {
     if (dryRun) {
       e.status = mr.wouldCreate ? 'would-write (create merchant)' : 'would-write';
       e.fields = fields;
-      log.push(e); progress({ entry: e }); continue;
+      await emit(e); continue;
     }
-    if (!local && !mr.merchant_id) { e.status = 'flagged'; e.flagReason = 'no merchant id'; log.push(e); progress({ entry: e }); continue; }
+    if (!local && !mr.merchant_id) { e.status = 'flagged'; e.flagReason = 'no merchant id'; await emit(e); continue; }
     try {
       await monarch.updateTransaction(tx.id, fields);
       const w = windowAround(rec.date, 12);
@@ -163,7 +170,7 @@ export async function run({ dryRun }) {
       const verified = local ? vt && norm(vt.merchant) === norm(canonical) : vt && vt.merchant_id === mr.merchant_id;
       e.status = verified ? 'written' : 'written (unverified)';
     } catch (err) { e.status = 'flagged'; e.flagReason = 'write failed: ' + err.message; }
-    log.push(e); progress({ entry: e });
+    await emit(e);
   }
 
   // End-of-run duplicate-merchant sweep for every payee touched (official MCP
