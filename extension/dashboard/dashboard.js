@@ -106,7 +106,9 @@ function refreshDataset() {
   chrome.runtime.sendMessage({ type: 'dataset/get' }, (ds) => {
     const list = Array.isArray(ds) ? ds : [];
     $('count').textContent = String(list.length);
-    $('needs').textContent = String(list.filter((r) => !r.recipient).length);
+    const needs = list.filter((r) => !r.recipient).length;
+    $('needs').textContent = String(needs);
+    $('needs').parentElement.classList.toggle('attention', needs > 0);
     const ul = $('preview');
     ul.innerHTML = '';
     for (const r of list.slice(-12).reverse()) {

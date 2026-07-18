@@ -10,10 +10,13 @@
 </head>
 <body>
   <header>
-    <h1>Ally Checks</h1>
+    <div class="brand">
+      <span class="mark" aria-hidden="true">✓</span>
+      <h1>Ally Checks</h1>
+    </div>
     <a href="#" id="open-options">Settings</a>
   </header>
-  <p id="runbanner" class="pill idle"><span class="dot"></span><span id="runbanner-text">Checking…</span></p>
+  <p id="runbanner" class="pill idle" role="status"><span class="dot"></span><span id="runbanner-text">Checking…</span></p>
 
   <section id="capture" class="card">
     <div class="card-label">Capture</div>
@@ -27,7 +30,7 @@
       </select>
     </div>
     <button id="capture-btn" class="block">Capture new checks</button>
-    <div class="row">
+    <div class="row util">
       <input id="recheck-num" type="text" placeholder="Check #" />
       <button id="recheck-btn" class="secondary">Re-capture this #</button>
     </div>

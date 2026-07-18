@@ -1,6 +1,7 @@
 /* Visual system from "Ally Checks Popup.dc.html" (claude.ai/design project
-   "Monarch Money Extension Design"): Manrope on warm paper, white cards,
-   Monarch-orange primaries, navy Review action, status pill. Light-only. */
+   "Monarch Money Extension Design"), refined: spacing rhythm on a 4px scale,
+   primary-action hierarchy, soft card elevation on the paper field, breathing
+   status dot, press states, custom select chevron. Manrope, light-only. */
 :root {
   color-scheme: light;
   --ink: #141a2b;
@@ -13,12 +14,14 @@
   --accent: #f4610d;
   --accent-dark: #d24f05;
   --accent-disabled: #f9b489;
+  --alert: #b34a08;
 }
 body {
   width: 380px;
   margin: 0;
   padding: 16px 20px 20px;
-  background: var(--paper);
+  background:
+    radial-gradient(120% 90% at 50% -10%, #fffdf9 0%, var(--paper) 60%);
   color: var(--ink);
   font-family: 'Manrope', -apple-system, system-ui, sans-serif;
   font-size: 14px;
@@ -27,10 +30,29 @@ body {
 }
 a { color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 700; }
 a:hover { color: var(--accent-dark); }
-select:focus, input:focus, button:focus { outline: 2px solid rgba(244, 97, 13, .35); outline-offset: 1px; }
+input:focus, select:focus-visible, button:focus-visible, a:focus-visible {
+  outline: 2px solid rgba(244, 97, 13, .35);
+  outline-offset: 1px;
+}
 
-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; margin: 0; }
+/* header */
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ff7a2e, var(--accent) 55%, var(--accent-dark));
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(244, 97, 13, .3);
+  flex: none;
+}
+h1 { font-size: 19px; font-weight: 800; letter-spacing: -0.3px; margin: 0; }
 .hint { color: var(--muted); font-size: 13px; font-weight: 600; }
 
 /* status pill */
@@ -44,13 +66,20 @@ h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; margin: 0; }
   margin: 14px 0 0;
   font-size: 13px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 .pill .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .pill.idle { background: #f2efe9; border-color: #e5e1d8; color: #6f6a5e; }
 .pill.idle .dot { background: #a8a294; }
-.pill.busy { background: #fdeee2; border-color: #f7cdae; color: #b34a08; }
-.pill.busy .dot { background: var(--accent); }
+.pill.busy { background: #fdeee2; border-color: #f7cdae; color: var(--alert); }
+.pill.busy .dot { background: var(--accent); animation: breathe 1.8s ease-out infinite; }
+@keyframes breathe {
+  0% { box-shadow: 0 0 0 0 rgba(244, 97, 13, .4); }
+  70% { box-shadow: 0 0 0 6px rgba(244, 97, 13, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(244, 97, 13, 0); }
+}
 
+/* cards float slightly on the paper field */
 section.card {
   background: #fff;
   border: 1px solid var(--line);
@@ -60,6 +89,7 @@ section.card {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: 0 1px 2px rgba(20, 26, 43, .04), 0 6px 16px rgba(20, 26, 43, .04);
 }
 .card-label {
   font-size: 11px;
@@ -67,13 +97,18 @@ section.card {
   letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--muted);
+  margin-bottom: -2px; /* label sits closer to its content than cards to each other */
 }
 .row { display: flex; gap: 8px; align-items: center; }
 .row.spread { justify-content: space-between; gap: 12px; }
 .row label { font-size: 14px; font-weight: 600; }
-.counts { display: flex; flex-direction: column; gap: 2px; }
+.row.util { border-top: 1px solid var(--line-soft); padding-top: 12px; }
+.counts { display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
 .counts .big { font-size: 15px; font-weight: 800; }
+.counts .hint.attention { color: var(--alert); }
+.counts .hint.attention::before { content: '•'; margin-right: 5px; }
 
+/* fields */
 select, input[type=text] {
   font-family: inherit;
   font-size: 14px;
@@ -83,9 +118,20 @@ select, input[type=text] {
   border: 1px solid var(--field-border);
   border-radius: 10px;
   padding: 8px 10px;
+  transition: border-color .15s ease;
+}
+select:hover, input[type=text]:hover { border-color: var(--btn-border); }
+select {
+  appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%238a8578' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
 }
 input#recheck-num { flex: 1; min-width: 0; padding: 10px 12px; }
+input::placeholder { color: #b3ad9f; font-weight: 600; }
 
+/* buttons — primary orange, navy review, quiet secondaries; all with press states */
 button {
   cursor: pointer;
   font-family: inherit;
@@ -97,16 +143,27 @@ button {
   background: var(--accent);
   color: #fff;
   box-shadow: 0 2px 6px rgba(244, 97, 13, .28);
+  transition: background .15s ease, box-shadow .15s ease, transform .06s ease;
 }
 button:hover { background: var(--accent-dark); }
-button:disabled { background: var(--accent-disabled); box-shadow: none; cursor: default; }
+button:active { transform: translateY(1px); box-shadow: 0 1px 3px rgba(244, 97, 13, .28); }
+button:disabled { background: var(--accent-disabled); box-shadow: none; cursor: default; transform: none; }
 button.block { width: 100%; padding: 12px 16px; font-size: 15px; border-radius: 12px; }
-button.secondary { background: #fff; color: var(--ink); border: 1px solid var(--btn-border); box-shadow: none; flex: none; }
+button.secondary {
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--btn-border);
+  box-shadow: none;
+  flex: none;
+}
 button.secondary:hover { background: #f5f2ec; }
+button.secondary:active { transform: translateY(1px); }
 button.secondary:disabled { background: #fff; opacity: .5; }
 button.dark { flex: 1; background: var(--ink); box-shadow: none; padding: 11px 14px; }
 button.dark:hover { background: #2a3247; }
+button.dark:active { transform: translateY(1px); }
 
+/* activity + dataset lists */
 .log {
   list-style: none;
   margin: 0;
@@ -115,12 +172,29 @@ button.dark:hover { background: #2a3247; }
   overflow-y: auto;
   font-size: 13px;
   font-weight: 600;
+  overscroll-behavior: contain;
 }
 .log:empty { display: none; }
-.log li { padding: 9px 2px; border-bottom: 1px solid var(--line-soft); font-variant-numeric: tabular-nums; }
+.log::-webkit-scrollbar { width: 8px; }
+.log::-webkit-scrollbar-track { background: transparent; }
+.log::-webkit-scrollbar-thumb { background: var(--field-border); border-radius: 4px; }
+.log::-webkit-scrollbar-thumb:hover { background: var(--btn-border); }
+.log li { padding: 8px 2px; border-bottom: 1px solid var(--line-soft); font-variant-numeric: tabular-nums; }
+.log li:last-child { border-bottom: 0; }
 .log li.err { color: #b3230d; }
 .log li.rowline { display: flex; gap: 10px; align-items: center; }
 .rowline .num { font-size: 14px; font-weight: 700; flex: none; }
 .rowline .date { color: var(--muted); flex: none; }
 .rowline .rec { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rowline .amt { margin-left: auto; font-size: 14px; font-weight: 700; flex: none; }
+
+/* entrance — one quick staggered rise; skipped for reduced motion */
+@media (prefers-reduced-motion: no-preference) {
+  header, .pill, section.card { animation: rise .26s cubic-bezier(.2, .7, .3, 1) backwards; }
+  .pill { animation-delay: .03s; }
+  #capture { animation-delay: .06s; }
+  #dataset { animation-delay: .1s; }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+}
