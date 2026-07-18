@@ -35,11 +35,11 @@ export async function getTransactions({ start_date, end_date, filters, limit = 1
       start_date, end_date, limit,
       ...(f.search != null ? { search: String(f.search) } : {}),
     }), 'get_transactions');
-    // Local envelope {results, total_count} → the official's {transactions,
+    // Local envelope {data, total_count} → the official's {transactions,
     // transaction_count} shape reconcile already consumes. Rows carry the same
     // keys we use (id, date, amount, merchant, category_id); merchant_id is
     // absent — local mode assigns merchants by name.
-    return { transactions: (r && r.results) || [], transaction_count: r ? r.total_count : null };
+    return { transactions: (r && (r.data || r.results)) || [], transaction_count: r ? r.total_count : null };
   }
   return parse(await callTool('GetTransactions', {
     start_date, end_date, filters: asFilters(filters), limit, include_details,
