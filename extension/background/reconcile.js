@@ -146,7 +146,9 @@ export async function run({ dryRun }) {
         if (dryRun) merges.push({ canonical, target, sources, dryRun: true });
         else { await monarch.mergeMerchants(sources, target); merges.push({ canonical, target, sources }); }
       }
-    } catch {}
+    } catch (err) {
+      merges.push({ canonical, error: String((err && err.message) || err) });
+    }
   }
 
   await storage.set('runLog', log);
