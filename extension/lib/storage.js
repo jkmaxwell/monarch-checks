@@ -3,6 +3,7 @@ const DEFAULTS = {
   settings: {
     anthropicApiKey: '',
     defaultWindowMonths: 6,
+    bank: 'ally', // key into lib/banks.js BANKS
     mcpMode: 'local', // 'local' (robcerda/monarch-mcp-server) | 'official' (OAuth)
     mcpLocalUrl: 'http://127.0.0.1:8642/mcp',
   },

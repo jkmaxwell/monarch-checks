@@ -10,6 +10,7 @@ const mcpLocalRow = document.getElementById('mcp-local-row');
 chrome.runtime.sendMessage({ type: 'settings/get' }, (s) => {
   keyInput.value = (s && s.anthropicApiKey) || '';
   windowSel.value = String((s && s.defaultWindowMonths) ?? 6);
+  document.getElementById('bank').value = (s && s.bank) || 'ally';
   mcpMode.value = (s && s.mcpMode) || 'local';
   mcpUrl.value = (s && s.mcpLocalUrl) || 'http://127.0.0.1:8642/mcp';
   syncMcpUi();
@@ -107,6 +108,7 @@ document.getElementById('save').addEventListener('click', () => {
   const partial = {
     anthropicApiKey: keyInput.value.trim(),
     defaultWindowMonths: Number(windowSel.value),
+    bank: document.getElementById('bank').value,
     mcpMode: mcpMode.value,
     mcpLocalUrl: mcpUrl.value.trim() || 'http://127.0.0.1:8642/mcp',
   };

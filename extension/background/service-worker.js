@@ -4,6 +4,7 @@
 import * as storage from '../lib/storage.js';
 import * as idb from '../lib/idb.js';
 import { b64ToBlob, b64FromBlob } from '../lib/util.js';
+import { bank } from '../lib/banks.js';
 import { extractRecipient } from './anthropic.js';
 import * as mcp from './mcp-client.js';
 import * as monarch from './monarch.js';
@@ -175,17 +176,18 @@ async function startCapture({ windowMonths }) {
   }
 
   const history = await storage.get('history');
-  const tabs = await chrome.tabs.query({ url: 'https://secure.ally.com/*' });
-  if (!tabs.length) throw new Error('No Ally tab open — open your Ally transactions page first.');
+  const b = bank(settings.bank);
+  const tabs = await chrome.tabs.query({ url: b.tabMatch });
+  if (!tabs.length) throw new Error(`No ${b.label} tab open — open your ${b.label} transactions page first.`);
   const tab = tabs.find((t) => t.active) || tabs[0];
 
   // Ensure the content script is present (it won't be in tabs that were already
   // open when the extension loaded). Injecting is idempotent — the script guards
   // re-injection with a window flag.
   try {
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content/ally-capture.js'] });
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [b.captureScript] });
   } catch (e) {
-    throw new Error('Could not inject into the Ally tab: ' + ((e && e.message) || e));
+    throw new Error(`Could not inject into the ${b.label} tab: ` + ((e && e.message) || e));
   }
 
   // Hand the walk to the content script; it streams capture/check back to us.

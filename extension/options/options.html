@@ -18,6 +18,14 @@
   <h1>Check Payee to Monarch — Settings</h1>
 
   <section>
+    <label for="bank">Bank</label>
+    <select id="bank">
+      <option value="ally">Ally Bank</option>
+    </select>
+    <p class="hint">Where checks are captured from. The capture engine is bank-specific — only Ally today; additional banks plug in here as they're added.</p>
+  </section>
+
+  <section>
     <label for="api-key">Claude API key</label>
     <input id="api-key" type="password" placeholder="sk-ant-…" autocomplete="off" />
     <p class="hint">Used in-browser for recipient extraction. Stored locally in the extension only.</p>
