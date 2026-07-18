@@ -26,7 +26,7 @@ function buildReviewHtml(records) {
   }));
 
   // Autocomplete suggestions: distinct names already in the set, most-common
-  // first, so typing "jane" surfaces "Jane Doe" and variants converge.
+  // first, so typing a payee's first name surfaces the canonical spelling.
   const counts = {};
   for (const r of records) {
     const n = (r.recipient || '').trim();

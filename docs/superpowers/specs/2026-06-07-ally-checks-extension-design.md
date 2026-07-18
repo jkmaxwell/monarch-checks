@@ -60,10 +60,9 @@ Persisted in `chrome.storage.local`:
 - **`settings`**: `{ anthropicApiKey, defaultWindowMonths, ... }`
 - **`history`**: the dedup ledger — set of processed `checkNumber`s plus the
   newest check date/number seen, so subsequent runs fetch **only new** checks.
-- **`normalizationMap`**: editable `{ variant → canonical }` (seeded with the
-  three known typos: `Jayne Doe→Jane Doe`, `Acme Landscaping→Acme
-  Co Landscaping`, `Example Flooring and Supply Inc→Example Flooring & Supply Inc`). **No
-  payee list is hardcoded** — everything else is discovered live.
+- **`normalizationMap`**: editable `{ variant → canonical }` fixups for known
+  misreads (e.g. `Jayne Doe→Jane Doe`), stored in `chrome.storage` only. **No
+  payee list is hardcoded** — everything is discovered live.
 - **`monarchAuth`**: OAuth tokens (access + refresh) + expiry + granted scopes.
 - **`lastRunLog`**: per-check results from the most recent run.
 

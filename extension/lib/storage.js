@@ -2,11 +2,9 @@
 const DEFAULTS = {
   settings: { anthropicApiKey: '', defaultWindowMonths: 6 },
   history: { processed: [], newestCheckNumber: null },
-  normalizationMap: {
-    'Jayne Doe': 'Jane Doe',
-    'Acme Landscaping': 'Acme Landscaping Co',
-    'Example Flooring and Supply Inc': 'Example Flooring & Supply Inc',
-  },
+  // Payee-name fixups ({ misread → canonical }). Personal entries live in
+  // chrome.storage / backups only — never seed real names in source.
+  normalizationMap: {},
   monarchAuth: null, // { clientId, accessToken, refreshToken, expiresAt, scopes }
   runLog: [],
   dataset: [], // working per-check records (accumulates across runs, deduped by checkNumber)

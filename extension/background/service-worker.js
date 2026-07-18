@@ -280,7 +280,7 @@ async function probeMonarch({ checkNumber }) {
     filters: { transaction_type: 'All', search: String(rec.checkNumber) },
     include_details: true,
   });
-  const merchants = await monarch.getMerchants(rec.recipient || 'Jane Doe', 10);
+  const merchants = rec.recipient ? await monarch.getMerchants(rec.recipient, 10) : null;
   return { check: rec, txByNumber, merchants };
 }
 

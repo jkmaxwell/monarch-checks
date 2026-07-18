@@ -152,9 +152,9 @@ Build-first, consistent with v1 — no formal unit suite. Verification:
 
 - **Pure helpers** (crop-arg builder, CSV row builder) written as small standalone
   functions; a quick Node sanity check on the CSV builder.
-- **Extraction smoke test:** one real API call on one cropped strip (e.g. #1769),
-  confirm it returns `recipient: "Jane Doe"` with high confidence, before
-  running the batch. (Requires `ANTHROPIC_API_KEY`.)
+- **Extraction smoke test:** one real API call on one cropped strip, confirm it
+  returns the expected payee with high confidence, before running the batch.
+  (Requires `ANTHROPIC_API_KEY`.)
 - **Review page:** open `review.html`, confirm strips render, recipients are
   editable, flagged rows are obvious, and "Export verified" downloads correct
   CSV + JSON.
