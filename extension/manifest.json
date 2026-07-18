@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Ally Checks",
+  "name": "Ally Bank Check Extractor",
   "version": "0.1.0",
   "description": "Capture Ally checks, extract recipients with Claude, reconcile into Monarch.",
   "permissions": ["identity", "storage", "alarms", "unlimitedStorage", "scripting"],
@@ -19,6 +19,6 @@
       "run_at": "document_idle"
     }
   ],
-  "action": { "default_title": "Ally Checks", "default_popup": "dashboard/dashboard.html" },
+  "action": { "default_title": "Ally Bank Check Extractor", "default_popup": "dashboard/dashboard.html" },
   "options_page": "options/options.html"
 }
