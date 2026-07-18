@@ -1,4 +1,8 @@
-# Ally Checks — browser extension
+# Check Payee to Monarch — browser extension
+
+> Fresh install? The [top-level README](../README.md) has the full
+> requirements/installation guide (including a Claude Code setup prompt).
+> This file covers the extension itself in more depth.
 
 Captures check images from Ally, crops the payee line in-page, extracts the
 recipient with Claude vision, lets you review/correct, and reconciles the
