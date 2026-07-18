@@ -8,13 +8,19 @@ const MCP_URL = 'https://api.monarch.com/mcp';
 const PRM_URL = 'https://api.monarch.com/.well-known/oauth-protected-resource/mcp';
 const PROTOCOL_VERSION = '2025-06-18';
 
+// host_permissions make Chrome attach the user's Monarch web-session cookies to
+// these fetches; Django then rejects the chrome-extension:// Origin as CSRF
+// (403 'Origin checking failed'). OAuth/MCP auth is Bearer-only — never send
+// cookies.
+const NO_COOKIES = { credentials: 'omit' };
+
 let sessionId = null; // module-global; re-init if the SW restarted (sessionId null)
 
 // ---- OAuth ----
 async function discover() {
-  const prm = await (await fetch(PRM_URL)).json();
+  const prm = await (await fetch(PRM_URL, NO_COOKIES)).json();
   const asBase = prm.authorization_servers[0].replace(/\/$/, '');
-  const asm = await (await fetch(asBase + '/.well-known/oauth-authorization-server')).json();
+  const asm = await (await fetch(asBase + '/.well-known/oauth-authorization-server', NO_COOKIES)).json();
   return { resource: prm.resource, asm };
 }
 
@@ -23,6 +29,7 @@ async function registerClient(asm) {
   if (auth && auth.clientId) return auth.clientId;
   const resp = await fetch(asm.registration_endpoint, {
     method: 'POST',
+    credentials: 'omit',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       redirect_uris: [chrome.identity.getRedirectURL()],
@@ -61,6 +68,7 @@ export async function connect() {
 
   const tok = await fetch(asm.token_endpoint, {
     method: 'POST',
+    credentials: 'omit',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type: 'authorization_code', code, redirect_uri: redirect,
@@ -92,6 +100,7 @@ export async function revoke() {
 async function refresh(auth) {
   const tok = await fetch(auth.tokenEndpoint, {
     method: 'POST',
+    credentials: 'omit',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type: 'refresh_token', refresh_token: auth.refreshToken,
@@ -148,6 +157,7 @@ async function rpc(method, params, retryAuth = true) {
   const token = await accessToken();
   const resp = await fetch(MCP_URL, {
     method: 'POST',
+    credentials: 'omit',
     headers: headers(token),
     body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params: params || {} }),
   });
@@ -168,6 +178,7 @@ async function notify(method, params) {
   const token = await accessToken();
   await fetch(MCP_URL, {
     method: 'POST',
+    credentials: 'omit',
     headers: headers(token),
     body: JSON.stringify({ jsonrpc: '2.0', method, params: params || {} }),
   });
