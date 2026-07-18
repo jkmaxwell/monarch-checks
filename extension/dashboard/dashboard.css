@@ -108,7 +108,8 @@ section.card {
 .counts .hint.attention { color: var(--alert); }
 .counts .hint.attention::before { content: '•'; margin-right: 5px; }
 
-/* fields */
+/* fields — all controls share one 40px height so mixed rows sit flush */
+select, input[type=text], button { box-sizing: border-box; height: 40px; }
 select, input[type=text] {
   font-family: inherit;
   font-size: 14px;
@@ -148,7 +149,9 @@ button {
 button:hover { background: var(--accent-dark); }
 button:active { transform: translateY(1px); box-shadow: 0 1px 3px rgba(244, 97, 13, .28); }
 button:disabled { background: var(--accent-disabled); box-shadow: none; cursor: default; transform: none; }
-button.block { width: 100%; padding: 12px 16px; font-size: 15px; border-radius: 12px; }
+#capture-btn { flex: 1; }
+.row > label { flex: none; }
+.row > select { min-width: 0; }
 button.secondary {
   background: #fff;
   color: var(--ink);
