@@ -14,7 +14,20 @@ const PROTOCOL_VERSION = '2025-06-18';
 // cookies.
 const NO_COOKIES = { credentials: 'omit' };
 
+// Which MCP to talk to. 'local' (default) is robcerda/monarch-mcp-server over
+// streamable HTTP — no OAuth (it holds a Monarch session in its keyring) and,
+// unlike the official MCP, it can see Plaid-connected accounts (= Ally).
+// 'official' is the OAuth'd api.monarch.com MCP.
+export async function mcpConfig() {
+  const s = await storage.get('settings');
+  return {
+    mode: s.mcpMode || 'local',
+    url: s.mcpLocalUrl || 'http://127.0.0.1:8642/mcp',
+  };
+}
+
 let sessionId = null; // module-global; re-init if the SW restarted (sessionId null)
+let sessionTarget = null; // invalidate the session when the mode/url changes
 
 // ---- OAuth ----
 async function discover() {
@@ -87,8 +100,10 @@ export async function connect() {
 }
 
 export async function status() {
+  const cfg = await mcpConfig();
+  if (cfg.mode === 'local') return { mode: 'local', url: cfg.url };
   const auth = await storage.get('monarchAuth');
-  return { connected: Boolean(auth && auth.accessToken), scopes: auth && auth.scopes };
+  return { mode: 'official', connected: Boolean(auth && auth.accessToken), scopes: auth && auth.scopes };
 }
 
 export async function revoke() {
@@ -127,11 +142,19 @@ function headers(token) {
   const h = {
     'content-type': 'application/json',
     accept: 'application/json, text/event-stream',
-    authorization: 'Bearer ' + token,
     'MCP-Protocol-Version': PROTOCOL_VERSION,
   };
+  if (token) h.authorization = 'Bearer ' + token;
   if (sessionId) h['Mcp-Session-Id'] = sessionId;
   return h;
+}
+
+// Resolve the target for this call; a mode/url switch drops the MCP session.
+async function target() {
+  const cfg = await mcpConfig();
+  const url = cfg.mode === 'local' ? cfg.url : MCP_URL;
+  if (sessionTarget !== url) { sessionId = null; sessionTarget = url; }
+  return { url, local: cfg.mode === 'local' };
 }
 
 function parseSse(text) {
@@ -154,14 +177,18 @@ function parseSse(text) {
 }
 
 async function rpc(method, params, retryAuth = true) {
-  const token = await accessToken();
-  const resp = await fetch(MCP_URL, {
+  const t = await target();
+  const token = t.local ? null : await accessToken();
+  const resp = await fetch(t.url, {
     method: 'POST',
     credentials: 'omit',
     headers: headers(token),
     body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params: params || {} }),
+  }).catch((e) => {
+    if (t.local) throw new Error(`Local MCP server unreachable at ${t.url} — start it with scripts/monarch-mcp-http.sh (${e.message})`);
+    throw e;
   });
-  if (resp.status === 401 && retryAuth) {
+  if (!t.local && resp.status === 401 && retryAuth) {
     const auth = await storage.get('monarchAuth');
     if (auth && auth.refreshToken) { await refresh(auth); return rpc(method, params, false); }
   }
@@ -175,8 +202,9 @@ async function rpc(method, params, retryAuth = true) {
 }
 
 async function notify(method, params) {
-  const token = await accessToken();
-  await fetch(MCP_URL, {
+  const t = await target();
+  const token = t.local ? null : await accessToken();
+  await fetch(t.url, {
     method: 'POST',
     credentials: 'omit',
     headers: headers(token),

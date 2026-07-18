@@ -280,7 +280,8 @@ async function probeMonarch({ checkNumber }) {
     filters: { transaction_type: 'All', search: String(rec.checkNumber) },
     include_details: true,
   });
-  const merchants = rec.recipient ? await monarch.getMerchants(rec.recipient, 10) : null;
+  // Merchant search exists on the official MCP only.
+  const merchants = rec.recipient && !(await monarch.isLocal()) ? await monarch.getMerchants(rec.recipient, 10) : null;
   return { check: rec, txByNumber, merchants };
 }
 

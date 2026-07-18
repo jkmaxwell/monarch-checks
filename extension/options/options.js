@@ -3,10 +3,25 @@ const keyInput = document.getElementById('api-key');
 const windowSel = document.getElementById('window');
 const status = document.getElementById('status');
 
+const mcpMode = document.getElementById('mcp-mode');
+const mcpUrl = document.getElementById('mcp-url');
+const mcpLocalRow = document.getElementById('mcp-local-row');
+
 chrome.runtime.sendMessage({ type: 'settings/get' }, (s) => {
   keyInput.value = (s && s.anthropicApiKey) || '';
   windowSel.value = String((s && s.defaultWindowMonths) ?? 6);
+  mcpMode.value = (s && s.mcpMode) || 'local';
+  mcpUrl.value = (s && s.mcpLocalUrl) || 'http://127.0.0.1:8642/mcp';
+  syncMcpUi();
 });
+
+function syncMcpUi() {
+  const local = mcpMode.value === 'local';
+  mcpLocalRow.style.display = local ? '' : 'none';
+  document.getElementById('monarch-connect').style.display = local ? 'none' : '';
+  document.getElementById('monarch-revoke').style.display = local ? 'none' : '';
+}
+mcpMode.addEventListener('change', syncMcpUi);
 
 // --- Monarch connection ---
 const mStatus = document.getElementById('monarch-status');
@@ -15,7 +30,11 @@ const send = (msg) => new Promise((res) => chrome.runtime.sendMessage(msg, res))
 
 function refreshMonarch() {
   send({ type: 'monarch/status' }).then((s) => {
-    mStatus.textContent = s && s.connected ? `Connected (scopes: ${s.scopes || '—'}).` : 'Not connected.';
+    if (s && s.mode === 'local') {
+      mStatus.textContent = `Local server mode (${s.url}) — no OAuth needed; use "List tools" to test the connection.`;
+    } else {
+      mStatus.textContent = s && s.connected ? `Connected (scopes: ${s.scopes || '—'}).` : 'Not connected.';
+    }
   });
 }
 refreshMonarch();
@@ -88,9 +107,12 @@ document.getElementById('save').addEventListener('click', () => {
   const partial = {
     anthropicApiKey: keyInput.value.trim(),
     defaultWindowMonths: Number(windowSel.value),
+    mcpMode: mcpMode.value,
+    mcpLocalUrl: mcpUrl.value.trim() || 'http://127.0.0.1:8642/mcp',
   };
   chrome.runtime.sendMessage({ type: 'settings/patch', partial }, () => {
     status.textContent = 'Saved.';
+    refreshMonarch();
     setTimeout(() => (status.textContent = ''), 1500);
   });
 });

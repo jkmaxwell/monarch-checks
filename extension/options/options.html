@@ -34,7 +34,15 @@
   </section>
 
   <section>
-    <label>Monarch</label>
+    <label for="mcp-mode">Monarch connection</label>
+    <select id="mcp-mode">
+      <option value="local">Local MCP server — sees Plaid accounts (robcerda/monarch-mcp-server)</option>
+      <option value="official">Official Monarch MCP — OAuth (hides Plaid accounts)</option>
+    </select>
+    <div id="mcp-local-row" style="margin-top:8px">
+      <input id="mcp-url" type="text" placeholder="http://127.0.0.1:8642/mcp" autocomplete="off" />
+      <p class="hint">Start it with <code>scripts/monarch-mcp-http.sh</code> (repo README has setup). Save after changing.</p>
+    </div>
     <p class="hint" id="monarch-status">Checking…</p>
     <button id="monarch-connect">Connect Monarch</button>
     <button id="monarch-revoke" style="background:transparent;color:inherit">Disconnect</button>

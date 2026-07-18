@@ -1,6 +1,11 @@
 // Typed wrappers over chrome.storage.local (ES module).
 const DEFAULTS = {
-  settings: { anthropicApiKey: '', defaultWindowMonths: 6 },
+  settings: {
+    anthropicApiKey: '',
+    defaultWindowMonths: 6,
+    mcpMode: 'local', // 'local' (robcerda/monarch-mcp-server) | 'official' (OAuth)
+    mcpLocalUrl: 'http://127.0.0.1:8642/mcp',
+  },
   history: { processed: [], newestCheckNumber: null },
   // Payee-name fixups ({ misread → canonical }). Personal entries live in
   // chrome.storage / backups only — never seed real names in source.

@@ -79,6 +79,10 @@ async function deriveCategory(merchantName) {
 }
 
 export async function run({ dryRun }) {
+  // Local mode (robcerda/monarch-mcp-server): no merchant search/create/merge
+  // tools — merchants are assigned by NAME on update_transaction and Monarch
+  // links-or-creates server-side, so the resolve and merge steps don't apply.
+  const local = await monarch.isLocal();
   const map = await storage.get('normalizationMap');
   const dataset = await storage.get('dataset');
   const checks = dataset.filter((r) => r.recipient); // can't assign without a recipient
@@ -121,10 +125,12 @@ export async function run({ dryRun }) {
       log.push(e); progress({ entry: e }); continue;
     }
 
-    let mr;
-    try { mr = await resolveMerchant(canonical, dryRun); }
-    catch (err) { e.status = 'flagged'; e.flagReason = 'merchant resolve: ' + err.message; log.push(e); progress({ entry: e }); continue; }
-    e.merchant_id = mr.merchant_id; e.merchantCreated = mr.created;
+    let mr = { merchant_id: null, created: false };
+    if (!local) {
+      try { mr = await resolveMerchant(canonical, dryRun); }
+      catch (err) { e.status = 'flagged'; e.flagReason = 'merchant resolve: ' + err.message; log.push(e); progress({ entry: e }); continue; }
+      e.merchant_id = mr.merchant_id; e.merchantCreated = mr.created;
+    }
     touched.add(canonical);
 
     let cat = { category_id: null, source: 'unchanged' };
@@ -136,7 +142,8 @@ export async function run({ dryRun }) {
     if (cat.source === 'dominant') e.flag = 'mixed category — used dominant';
 
     const fields = {};
-    if (mr.merchant_id) fields.merchant_id = mr.merchant_id;
+    if (local) fields.merchant_name = canonical;
+    else if (mr.merchant_id) fields.merchant_id = mr.merchant_id;
     if (cat.category_id) fields.category_id = cat.category_id;
 
     if (dryRun) {
@@ -144,7 +151,7 @@ export async function run({ dryRun }) {
       e.fields = fields;
       log.push(e); progress({ entry: e }); continue;
     }
-    if (!mr.merchant_id) { e.status = 'flagged'; e.flagReason = 'no merchant id'; log.push(e); progress({ entry: e }); continue; }
+    if (!local && !mr.merchant_id) { e.status = 'flagged'; e.flagReason = 'no merchant id'; log.push(e); progress({ entry: e }); continue; }
     try {
       await monarch.updateTransaction(tx.id, fields);
       const w = windowAround(rec.date, 12);
@@ -152,14 +159,17 @@ export async function run({ dryRun }) {
         start_date: w.start, end_date: w.end,
         filters: { transaction_type: 'All', search: String(rec.checkNumber) },
       })).find((t) => t.id === tx.id);
-      e.status = vt && vt.merchant_id === mr.merchant_id ? 'written' : 'written (unverified)';
+      // Verify by id (official) or by the assigned name (local, no merchant_id).
+      const verified = local ? vt && norm(vt.merchant) === norm(canonical) : vt && vt.merchant_id === mr.merchant_id;
+      e.status = verified ? 'written' : 'written (unverified)';
     } catch (err) { e.status = 'flagged'; e.flagReason = 'write failed: ' + err.message; }
     log.push(e); progress({ entry: e });
   }
 
-  // End-of-run duplicate-merchant sweep for every payee touched.
+  // End-of-run duplicate-merchant sweep for every payee touched (official MCP
+  // only — the local server assigns by name, which can't create duplicates).
   const merges = [];
-  for (const canonical of touched) {
+  for (const canonical of local ? [] : touched) {
     try {
       const ms = merList(await monarch.getMerchants(canonical, 50)).filter((m) => norm(m.name) === norm(canonical));
       if (ms.length > 1) {
