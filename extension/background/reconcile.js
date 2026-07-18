@@ -24,24 +24,31 @@ function progress(p) {
 }
 const txList = (r) => (r && Array.isArray(r.transactions) ? r.transactions : []);
 const merList = (r) => (r && Array.isArray(r.merchants) ? r.merchants : []);
+// Monarch's MCP excludes Plaid-connected accounts: matching transactions are
+// counted but not returned (`plaid_excluded` block in the response). Without
+// this check they'd all be misreported as "transaction not found".
+const plaidHidden = (r) =>
+  Boolean(r && r.plaid_excluded && (r.plaid_excluded.hidden_account_count || 0) > 0);
 
 // Tiered location: check# → date+amount → flag.
 async function locate(rec) {
   const w = windowAround(rec.date, 12);
-  let txs = txList(await monarch.getTransactions({
+  let resp = await monarch.getTransactions({
     start_date: w.start, end_date: w.end,
     filters: { transaction_type: 'All', search: String(rec.checkNumber) },
-  }));
-  let m = txs.filter((t) => amt(t.amount) === amt(rec.amount));
+  });
+  let m = txList(resp).filter((t) => amt(t.amount) === amt(rec.amount));
   if (m.length === 1) return { tx: m[0], tier: 1 };
   if (m.length > 1) return { ambiguous: m, tier: 1 };
+  if (plaidHidden(resp)) return { hidden: true };
 
-  txs = txList(await monarch.getTransactions({
+  resp = await monarch.getTransactions({
     start_date: w.start, end_date: w.end, filters: { transaction_type: 'All' }, limit: 200,
-  }));
-  m = txs.filter((t) => amt(t.amount) === amt(rec.amount) && t.date === rec.date);
+  });
+  m = txList(resp).filter((t) => amt(t.amount) === amt(rec.amount) && t.date === rec.date);
   if (m.length === 1) return { tx: m[0], tier: 2 };
   if (m.length > 1) return { ambiguous: m, tier: 2 };
+  if (plaidHidden(resp)) return { hidden: true };
   return { notFound: true };
 }
 
@@ -77,6 +84,7 @@ export async function run({ dryRun }) {
   const checks = dataset.filter((r) => r.recipient); // can't assign without a recipient
   const log = [];
   const touched = new Set();
+  let hiddenCount = 0;
 
   for (let i = 0; i < checks.length; i++) {
     const rec = checks[i];
@@ -87,6 +95,21 @@ export async function run({ dryRun }) {
     let loc;
     try { loc = await locate(rec); }
     catch (err) { e.status = 'flagged'; e.flagReason = 'locate error: ' + err.message; log.push(e); progress({ entry: e }); continue; }
+    if (loc.hidden) {
+      e.status = 'flagged'; e.flagReason = 'in Monarch, but its MCP hides Plaid-connected accounts';
+      log.push(e); progress({ entry: e });
+      // Every check is on the same (hidden) account — stop instead of grinding
+      // through the rest. The fix is Monarch-side: migrate off Plaid.
+      if (++hiddenCount >= 3) {
+        await storage.set('runLog', log);
+        return {
+          log, merges: [], dryRun,
+          error: "Monarch's MCP can't see Plaid-connected accounts, which currently includes Ally. " +
+            'Migrate the connection at app.monarchmoney.com/accounts?reconnect=plaid_migration, then re-run.',
+        };
+      }
+      continue;
+    }
     if (loc.notFound) { e.status = 'flagged'; e.flagReason = 'transaction not found'; log.push(e); progress({ entry: e }); continue; }
     if (loc.ambiguous) { e.status = 'flagged'; e.flagReason = `ambiguous (${loc.ambiguous.length} same amount/date)`; log.push(e); progress({ entry: e }); continue; }
 

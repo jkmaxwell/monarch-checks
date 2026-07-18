@@ -121,7 +121,9 @@ function reconLine(entry) {
     (entry.flag ? ` [${entry.flag}]` : '');
   reconLog.prepend(li);
 }
+let activeDryRun = false;
 function runReconcile(dryRun) {
+  activeDryRun = dryRun;
   reconDiv.hidden = false;
   reconLog.innerHTML = '';
   $('recon-summary').textContent = dryRun ? 'Dry run — computing, no writes…' : 'Reconciling — writing to Monarch…';
@@ -136,10 +138,27 @@ $('reconcile').addEventListener('click', () => {
 });
 chrome.runtime.onMessage.addListener((msg) => {
   if (!msg) return;
-  if (msg.type === 'reconcile/progress' && msg.entry) reconLine(msg.entry);
-  else if (msg.type === 'reconcile/done') {
+  if (msg.type === 'reconcile/progress') {
+    if (msg.entry) reconLine(msg.entry);
+    else if (msg.phase === 'check') {
+      // Live per-check progress — the engine sends this before it starts each
+      // check, so the page never looks dead between log entries.
+      $('recon-summary').textContent =
+        `${activeDryRun ? 'Dry run' : 'Reconciling'} — check ${msg.i}/${msg.total} (#${msg.checkNumber})…`;
+    }
+  } else if (msg.type === 'reconcile/done') {
     $('dryrun').disabled = false; $('reconcile').disabled = false;
-    if (msg.error) { $('recon-summary').textContent = 'Error: ' + msg.error; return; }
+    if (msg.error) {
+      $('recon-summary').textContent = 'Stopped: ' + msg.error + ' ';
+      if (msg.error.includes('app.monarchmoney.com')) {
+        const a = document.createElement('a');
+        a.href = 'https://app.monarchmoney.com/accounts?reconnect=plaid_migration';
+        a.target = '_blank';
+        a.textContent = 'Open Monarch accounts →';
+        $('recon-summary').appendChild(a);
+      }
+      return;
+    }
     $('recon-summary').textContent =
       `${msg.dryRun ? 'Dry run' : 'Done'}: ${msg.written} written, ${msg.would} would-write, ` +
       `${msg.skipped} skipped, ${msg.flagged} flagged · ${msg.merges} merchant merge(s).`;

@@ -121,7 +121,7 @@ async function startReconcile(dryRun) {
     const log = res.log || [];
     const count = (s) => log.filter((e) => (e.status || '').startsWith(s)).length;
     broadcast({
-      type: 'reconcile/done', dryRun,
+      type: 'reconcile/done', dryRun, error: res.error,
       written: count('written'), would: count('would'), skipped: count('skipped'),
       flagged: count('flagged'), merges: (res.merges || []).length,
     });
