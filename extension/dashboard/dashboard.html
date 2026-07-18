@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <title>Ally Checks</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="dashboard.css" />
 </head>
 <body>
@@ -10,10 +13,11 @@
     <h1>Ally Checks</h1>
     <a href="#" id="open-options">Settings</a>
   </header>
-  <p id="runbanner" class="hint">Checking…</p>
+  <p id="runbanner" class="pill idle"><span class="dot"></span><span id="runbanner-text">Checking…</span></p>
 
-  <section id="capture">
-    <div class="row">
+  <section id="capture" class="card">
+    <div class="card-label">Capture</div>
+    <div class="row spread">
       <label for="window">History window</label>
       <select id="window">
         <option value="6">6 months</option>
@@ -21,21 +25,27 @@
         <option value="24">2 years</option>
         <option value="0">All time</option>
       </select>
-      <button id="capture-btn">Capture new checks</button>
     </div>
+    <button id="capture-btn" class="block">Capture new checks</button>
     <div class="row">
-      <input id="recheck-num" type="text" placeholder="check #" style="width:84px;padding:6px;border-radius:6px;border:1px solid #8886" />
+      <input id="recheck-num" type="text" placeholder="Check #" />
       <button id="recheck-btn" class="secondary">Re-capture this #</button>
     </div>
     <p id="status" class="hint">Connecting…</p>
     <ul id="progress" class="log"></ul>
   </section>
 
-  <section id="dataset">
-    <div class="row">
-      <span class="hint"><span id="count">0</span> checks · <span id="needs">0</span> need recipient</span>
+  <section id="dataset" class="card">
+    <div class="card-label">Recipients</div>
+    <div class="row spread">
+      <div class="counts">
+        <span class="big"><span id="count">0</span> checks</span>
+        <span class="hint"><span id="needs">0</span> need recipient</span>
+      </div>
       <button id="extract-btn">Extract recipients</button>
-      <button id="review-btn">Review &amp; correct</button>
+    </div>
+    <div class="row">
+      <button id="review-btn" class="dark">Review &amp; correct</button>
       <button id="refresh" class="secondary">Refresh</button>
     </div>
     <ul id="preview" class="log"></ul>

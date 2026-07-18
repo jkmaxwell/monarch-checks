@@ -10,18 +10,29 @@ function logLine(ul, text, cls) {
   ul.prepend(li);
 }
 
-// --- live run-state banner ---
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function fmtAmount(a) {
+  const n = Number(a);
+  return Number.isFinite(n)
+    ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : String(a == null ? '' : a);
+}
+
+// --- live run-state status pill ---
 const banner = $('runbanner');
+const bannerText = $('runbanner-text');
 const LABELS = { capture: 'Capturing checks', extract: 'Extracting recipients', reconcile: 'Reconciling' };
 function setBusy(b) { $('capture-btn').disabled = b; $('extract-btn').disabled = b; }
 function renderStatus(rs) {
-  if (!rs || !rs.active) { banner.textContent = 'Idle — no run in progress.'; banner.className = 'hint'; setBusy(false); return; }
+  if (!rs || !rs.active) { bannerText.textContent = 'Idle — no run in progress'; banner.className = 'pill idle'; setBusy(false); return; }
   const ago = rs.lastActivityAt ? Math.round((Date.now() - rs.lastActivityAt) / 1000) : null;
-  let t = `● ${LABELS[rs.active] || rs.active}…`;
+  let t = `${LABELS[rs.active] || rs.active}…`;
   if (rs.active === 'capture' && rs.count != null) t += ` (${rs.count} in dataset)`;
+  if (rs.active === 'reconcile' && rs.total) t += ` (check ${rs.i || 0}/${rs.total})`;
   if (ago != null) t += ` · last activity ${ago}s ago${ago > 120 ? ' — may be stalled' : ''}`;
-  banner.textContent = t;
-  banner.className = 'running';
+  bannerText.textContent = t;
+  banner.className = 'pill busy';
   setBusy(true);
 }
 function pollStatus() { chrome.runtime.sendMessage({ type: 'status/get' }, (rs) => { if (!chrome.runtime.lastError) renderStatus(rs); }); }
@@ -99,7 +110,14 @@ function refreshDataset() {
     const ul = $('preview');
     ul.innerHTML = '';
     for (const r of list.slice(-12).reverse()) {
-      logLine(ul, `#${r.checkNumber} · ${r.date} · $${r.amount}${r.recipient ? ' · ' + r.recipient : ''}`);
+      const li = document.createElement('li');
+      li.className = 'rowline';
+      li.innerHTML =
+        `<span class="num">#${esc(r.checkNumber)}</span>` +
+        `<span class="date">${esc(r.date)}</span>` +
+        `<span class="rec">${esc(r.recipient || '')}</span>` +
+        `<span class="amt">$${esc(fmtAmount(r.amount))}</span>`;
+      ul.appendChild(li);
     }
   });
 }
