@@ -3,7 +3,7 @@
 // ES module.
 import * as storage from '../lib/storage.js';
 import * as idb from '../lib/idb.js';
-import { b64ToBlob } from '../lib/util.js';
+import { b64ToBlob, b64FromBlob } from '../lib/util.js';
 import { extractRecipient } from './anthropic.js';
 import * as mcp from './mcp-client.js';
 import * as monarch from './monarch.js';
@@ -34,6 +34,10 @@ async function handle(msg, sender) {
       return await storage.get('runState');
     case 'data/reset':
       return await resetData();
+    case 'data/export':
+      return await exportData();
+    case 'data/import':
+      return await importData(msg.snapshot);
 
     case 'capture/recheck':
       return await recheckOne(msg); // drop a check so the next capture re-fetches it
@@ -200,6 +204,43 @@ async function resetData() {
   return { ok: true };
 }
 
+// Backup: everything needed to survive the browser dropping the extension
+// (Dia wipes unpacked extensions on some updates, deleting storage + IDB with
+// them). Excludes settings (API key) and the Monarch tokens on purpose.
+async function exportData() {
+  const strips = {};
+  for (const [n, blob] of Object.entries(await idb.allStrips())) {
+    strips[n] = await b64FromBlob(blob);
+  }
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    dataset: await storage.get('dataset'),
+    history: await storage.get('history'),
+    normalizationMap: await storage.get('normalizationMap'),
+    runLog: await storage.get('runLog'),
+    strips,
+  };
+}
+
+// Restore a backup. Replaces dataset/history/map/log wholesale (restore
+// semantics, not merge) and re-populates the strip store.
+async function importData(snapshot) {
+  if (!snapshot || snapshot.version !== 1 || !Array.isArray(snapshot.dataset)) {
+    throw new Error('Not an Ally Checks backup file.');
+  }
+  await storage.set('dataset', snapshot.dataset);
+  await storage.set('history', snapshot.history || { processed: [], newestCheckNumber: null });
+  if (snapshot.normalizationMap) await storage.set('normalizationMap', snapshot.normalizationMap);
+  if (snapshot.runLog) await storage.set('runLog', snapshot.runLog);
+  let strips = 0;
+  for (const [n, b64] of Object.entries(snapshot.strips || {})) {
+    await idb.putStrip(n, b64ToBlob(b64, 'image/png'));
+    strips++;
+  }
+  return { ok: true, checks: snapshot.dataset.length, strips };
+}
+
 // Remove a check from dedup history + dataset so a subsequent capture re-fetches
 // and re-crops it (its strip is overwritten; recipient resets so Extract re-reads).
 async function recheckOne({ checkNumber }) {
@@ -261,6 +302,8 @@ async function runExtract() {
   const list = await storage.get('dataset');
   const todo = list.filter((r) => !r.recipient);
   let done = 0;
+  let consecutiveErrors = 0;
+  let lastErr = null;
   for (const r of todo) {
     const strip = await idb.getStrip(r.checkNumber);
     if (!strip) { r.confidence = 'low'; continue; }
@@ -268,10 +311,13 @@ async function runExtract() {
       const res = await extractRecipient(strip, settings.anthropicApiKey);
       r.recipient = res.recipient;
       r.confidence = res.confidence;
+      consecutiveErrors = 0;
     } catch (e) {
       r.recipient = '';
       r.confidence = 'low';
       r.extractError = String((e && e.message) || e);
+      lastErr = r.extractError;
+      consecutiveErrors++;
     }
     done++;
     await storage.set('dataset', list); // checkpoint each
@@ -280,6 +326,11 @@ async function runExtract() {
       type: 'extract/progress', done, total: todo.length,
       checkNumber: r.checkNumber, recipient: r.recipient, confidence: r.confidence,
     });
+    // A bad key or rate limit fails every call — stop instead of marking the
+    // whole backlog low-confidence. Untouched checks retry next run.
+    if (consecutiveErrors >= 3) {
+      throw new Error(`stopped after 3 consecutive extract errors (last: ${lastErr}); extracted ${done - 3} first`);
+    }
   }
   return { extracted: done };
 }

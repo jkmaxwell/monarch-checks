@@ -37,6 +37,23 @@ export async function getStrip(checkNumber) {
   });
 }
 
+// All strips as { checkNumber: Blob } — used by backup export.
+export async function allStrips() {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const store = tx(db, 'readonly');
+    const out = {};
+    const r = store.openCursor();
+    r.onsuccess = () => {
+      const cur = r.result;
+      if (!cur) return resolve(out);
+      out[cur.key] = cur.value;
+      cur.continue();
+    };
+    r.onerror = () => reject(r.error);
+  });
+}
+
 export async function clearStrips() {
   const db = await open();
   return new Promise((resolve, reject) => {

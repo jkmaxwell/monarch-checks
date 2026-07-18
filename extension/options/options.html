@@ -44,6 +44,15 @@
   </section>
 
   <section>
+    <label>Backup &amp; restore</label>
+    <p class="hint">Dia can drop unpacked extensions on updates, deleting all captured data with them. Export a backup after each session; import it to restore. (Your API key and Monarch connection are not included.)</p>
+    <button id="export">Export backup</button>
+    <button id="import" style="background:transparent;color:inherit">Import backup…</button>
+    <input id="import-file" type="file" accept="application/json,.json" style="display:none" />
+    <p class="hint" id="backup-status"></p>
+  </section>
+
+  <section>
     <label>Start over</label>
     <p class="hint">Clears all captured checks, strips, and history (keeps your API key, Monarch connection, and name map).</p>
     <button id="reset" style="background:#dc2626">Clear captured data</button>
