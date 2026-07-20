@@ -56,7 +56,7 @@ Clone this repo, `cd` into it, run `claude`, and paste:
 
 1. **Clone the repos**
    ```sh
-   git clone <this-repo> && cd chase-checks
+   git clone https://github.com/jkmaxwell/monarch-checks && cd monarch-checks
    git clone https://github.com/robcerda/monarch-mcp-server ~/dev/monarch-mcp-server
    brew install uv   # if you don't have it
    ```
