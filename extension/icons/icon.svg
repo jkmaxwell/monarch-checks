@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect x="4" y="4" width="120" height="120" rx="26" fill="#1E8F5E"/>
+  <!-- paper check body -->
+  <rect x="28" y="38" width="72" height="52" rx="6" fill="#ffffff"/>
+  <rect x="39" y="52" width="34" height="5" rx="2.5" fill="#CFE8DB"/>
+  <rect x="39" y="63" width="26" height="5" rx="2.5" fill="#CFE8DB"/>
+  <!-- filled checkmark (fills render reliably; strokes do not) -->
+  <path d="M54 72 L64 82 L89 53 L96 60 L64 92 L47 76 Z" fill="#1E8F5E"/>
+</svg>

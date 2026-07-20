@@ -52,6 +52,21 @@ Clone this repo, `cd` into it, run `claude`, and paste:
 > moving on, and tell me exactly what to do for the steps you can't do yourself
 > (keychain prompts, browser UI, logins).
 
+## Installation — one script
+
+If you'd rather not paste a prompt, `setup.sh` does the scriptable parts
+(checks Homebrew/git, installs `uv`, clones the Monarch bridge to
+`~/dev/monarch-mcp-server`, runs its interactive login), then prints the
+browser steps it can't do for you:
+
+```sh
+git clone https://github.com/jkmaxwell/monarch-checks && cd monarch-checks
+./setup.sh
+```
+
+It's safe to re-run — each step is skipped if already done. Then do steps 3–5
+under **Installation — manual** below.
+
 ## Installation — manual
 
 1. **Clone the repos**
@@ -70,8 +85,10 @@ Clone this repo, `cd` into it, run `claude`, and paste:
    **Always Allow**.
 3. **Start the bridge** (leave running while you use the extension)
    ```sh
-   MONARCH_MCP_DIR=~/dev/monarch-mcp-server ./scripts/monarch-mcp-http.sh
+   ./scripts/monarch-mcp-http.sh
    ```
+   (Defaults to `~/dev/monarch-mcp-server`; set `MONARCH_MCP_DIR` only if your
+   checkout lives elsewhere.)
    It listens on `http://127.0.0.1:8642/mcp` (localhost only, no auth — your
    Monarch credentials never leave the keychain).
 4. **Load the extension**: browser → `chrome://extensions` (Dia:

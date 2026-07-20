@@ -27,5 +27,3 @@ bank-specific strings baked into the capture engine (Ally's throttle and
 - Optional `wide_search` fallback for the local MCP's tier-1 check-number
   lookup (one-line change in `extension/background/monarch.js`) if server-side
   search ever misses.
-- Extension icons (`manifest.json` has none — toolbar shows the default
-  puzzle piece).
