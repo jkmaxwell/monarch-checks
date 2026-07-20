@@ -1,3 +1,5 @@
+👉 **PERSONAL PROJECT -- NOT ASSOCIATED WITH OR ENDORSED BY MONARCH MONEY** 👈
+
 # Check Payee to Monarch
 
 A browser extension that reads payees off Ally Bank check images and writes
