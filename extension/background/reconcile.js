@@ -82,6 +82,24 @@ async function deriveCategory(merchantName) {
   return { category_id: ids[0], categoryName: nameById[ids[0]], source: ids.length === 1 ? 'uniform' : 'dominant' };
 }
 
+// Learn a mapping discovered from Monarch itself: the check's OCR name (fromName)
+// resolves to the merchant the user assigned in Monarch (monarchName + id). Lets
+// future checks with the same OCR spelling skip straight to their merchant.
+async function learnFromMonarch(fromName, monarchName, merchantId) {
+  const from = String(fromName || '').trim();
+  const to = String(monarchName || '').trim();
+  if (from && to && from.toLowerCase() !== to.toLowerCase()) {
+    const map = await storage.get('normalizationMap');
+    map[from] = to;
+    await storage.set('normalizationMap', map);
+  }
+  if (to && merchantId) {
+    const idMap = await storage.get('merchantIdMap');
+    idMap[to] = merchantId;
+    await storage.set('merchantIdMap', idMap);
+  }
+}
+
 export async function run({ dryRun }) {
   // Local mode (robcerda/monarch-mcp-server): no merchant search/create/merge
   // tools — merchants are assigned by NAME on update_transaction and Monarch
@@ -143,8 +161,18 @@ export async function run({ dryRun }) {
     const tx = loc.tx;
     e.transaction_id = tx.id; e.tier = loc.tier; e.currentMerchant = tx.merchant;
 
-    if (!isGeneric(tx.merchant) && norm(tx.merchant) === norm(canonical)) {
-      e.status = 'skipped'; e.flagReason = 'already assigned'; e.merchant_id = tx.merchant_id;
+    if (!isGeneric(tx.merchant)) {
+      // A real merchant is already on this transaction. If it matches our name,
+      // it's done. If it DIFFERS, the user assigned it in Monarch — their edit
+      // wins, never overwrite it. Learn the OCR→merchant mapping so this spelling
+      // resolves straight to their merchant next time. Either way: settled.
+      e.merchant_id = tx.merchant_id;
+      if (norm(tx.merchant) === norm(canonical)) {
+        e.status = 'skipped'; e.flagReason = 'already assigned';
+      } else {
+        e.status = 'skipped'; e.flagReason = `kept your Monarch merchant (${tx.merchant})`;
+        if (!dryRun) await learnFromMonarch(canonical, tx.merchant, tx.merchant_id);
+      }
       stampReconciled(rec, e); // correctly in Monarch already — treat as settled
       await emit(e); continue;
     }
