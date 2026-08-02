@@ -333,6 +333,9 @@ async function setRecipient({ checkNumber, recipient, confidence, original, merc
     idMap[clean] = merchantId;
     await storage.set('merchantIdMap', idMap);
   }
+  // Editing a recipient IS the human confirming the name — the full image (kept
+  // only to read a missed crop) is no longer needed. Drop it; the strip stays.
+  if (clean) { try { await idb.deleteFull(checkNumber); } catch {} }
   return { ok: true };
 }
 
