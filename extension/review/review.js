@@ -1,7 +1,7 @@
 // Review page (full tab): payee strip + editable recipient (autocomplete) per
 // check, reading the dataset from the SW and the strips from IndexedDB. Edits
 // save back to the SW automatically.
-import { getStrip } from '../lib/idb.js';
+import { getStrip, getFull } from '../lib/idb.js';
 
 const send = (msg) => new Promise((res) => chrome.runtime.sendMessage(msg, res));
 const $ = (id) => document.getElementById(id);
@@ -48,7 +48,9 @@ function render() {
     tr.innerHTML =
       `<td class="num">${esc(r.checkNumber)}</td>` +
       `<td class="strip"><div class="frame" data-check="${esc(r.checkNumber)}">` +
-        `<span class="ph">check scan · payee strip #${esc(r.checkNumber)}</span></div></td>` +
+        `<span class="ph">check scan · payee strip #${esc(r.checkNumber)}</span></div>` +
+        `<button type="button" class="full-toggle" data-check="${esc(r.checkNumber)}">Crop wrong? Show full check</button>` +
+        `<div class="full-frame" data-check="${esc(r.checkNumber)}" hidden></div></td>` +
       `<td class="rec"><input type="text" list="recipient-list" autocomplete="off" value="${esc(r.recipient || '')}" data-check="${esc(r.checkNumber)}"></td>` +
       `<td class="conf"><span class="badge ${esc(r.confidence || 'low')}">${esc(r.confidence || 'low')}</span></td>` +
       `<td class="amt">${esc(fmtAmount(r.amount))}</td>` +
@@ -66,6 +68,36 @@ function render() {
   }
   syncStickyOffset();
 }
+
+// Show/hide the full front check when a crop missed the payee. The full image is
+// stored locally (IndexedDB, JPEG) and loaded lazily on first expand; checks
+// captured before this feature won't have one (recapture via the popup to get it).
+$('rows').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.full-toggle');
+  if (!btn) return;
+  const check = btn.dataset.check;
+  const frame = $('rows').querySelector(`.full-frame[data-check="${CSS.escape(check)}"]`);
+  if (!frame) return;
+  if (!frame.hidden) {
+    frame.hidden = true;
+    btn.textContent = 'Crop wrong? Show full check';
+    return;
+  }
+  if (!frame.dataset.loaded) {
+    frame.dataset.loaded = '1';
+    const blob = await getFull(check);
+    if (!blob) {
+      frame.innerHTML = '<span class="ph">no full image stored — recapture this check to get one</span>';
+    } else {
+      const img = document.createElement('img');
+      img.alt = 'full check ' + check;
+      img.src = URL.createObjectURL(blob);
+      frame.replaceChildren(img);
+    }
+  }
+  frame.hidden = false;
+  btn.textContent = 'Hide full check';
+});
 
 // Save on commit (blur / Enter), not on every keystroke — avoids persisting a
 // half-typed value like "Ia".

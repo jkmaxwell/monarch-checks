@@ -205,6 +205,7 @@ async function resetData() {
   await storage.set('history', { processed: [], newestCheckNumber: null });
   await storage.set('runState', { active: null, count: 0, lastActivityAt: 0 });
   try { await idb.clearStrips(); } catch {}
+  try { await idb.clearFulls(); } catch {}
   return { ok: true };
 }
 
@@ -216,6 +217,12 @@ async function exportData() {
   for (const [n, blob] of Object.entries(await idb.allStrips())) {
     strips[n] = await b64FromBlob(blob);
   }
+  // Full images too, so bad-crop recovery survives a wipe. They're JPEG, but they
+  // still dominate backup size — the biggest part of the file by far.
+  const fulls = {};
+  for (const [n, blob] of Object.entries(await idb.allFulls())) {
+    fulls[n] = await b64FromBlob(blob);
+  }
   return {
     version: 1,
     exportedAt: new Date().toISOString(),
@@ -224,6 +231,7 @@ async function exportData() {
     normalizationMap: await storage.get('normalizationMap'),
     runLog: await storage.get('runLog'),
     strips,
+    fulls,
   };
 }
 
@@ -242,6 +250,9 @@ async function importData(snapshot) {
     await idb.putStrip(n, b64ToBlob(b64, 'image/png'));
     strips++;
   }
+  for (const [n, b64] of Object.entries(snapshot.fulls || {})) {
+    await idb.putFull(n, b64ToBlob(b64, 'image/jpeg'));
+  }
   return { ok: true, checks: snapshot.dataset.length, strips };
 }
 
@@ -257,9 +268,10 @@ async function recheckOne({ checkNumber }) {
   return { ok: true, removed: n };
 }
 
-async function onCheckCaptured({ record, stripB64 }) {
+async function onCheckCaptured({ record, stripB64, fullB64 }) {
   if (!record || record.checkNumber == null) return;
   if (stripB64) await idb.putStrip(record.checkNumber, b64ToBlob(stripB64, 'image/png'));
+  if (fullB64) await idb.putFull(record.checkNumber, b64ToBlob(fullB64, 'image/jpeg'));
 
   const list = await storage.get('dataset');
   if (!list.some((r) => r.checkNumber === record.checkNumber)) list.push(record);

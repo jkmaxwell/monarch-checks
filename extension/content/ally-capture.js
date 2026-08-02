@@ -167,6 +167,15 @@
     c.getContext('2d').drawImage(img, x, y, w, h, 0, 0, w, h);
     return new Promise((res) => c.toBlob((b) => res(b), 'image/png'));
   }
+  // Full front image as JPEG — kept local for manual review when the strip crop
+  // misses. JPEG (not PNG) keeps the stored/backed-up bytes reasonable; it's only
+  // ever viewed by a human, never sent to the vision API (the strip is).
+  function fullToBlob(img) {
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    c.getContext('2d').drawImage(img, 0, 0);
+    return new Promise((res) => c.toBlob((b) => res(b), 'image/jpeg', 0.85));
+  }
   function blobToB64(blob) {
     return new Promise((res) => {
       const r = new FileReader();
@@ -186,8 +195,59 @@
     if (!meta.checkNumber) meta.checkNumber = checkNumber;
     if (!meta.amount) meta.amount = 'unknown-amount';
     const stripB64 = await blobToB64(await cropStrip(front));
+    const fullB64 = await blobToB64(await fullToBlob(front));
     await closeModal();
-    return { record: meta, stripB64 };
+    return { record: meta, stripB64, fullB64 };
+  }
+
+  // --- narrow the list to checks before walking ---
+  // Mirrors the manual filter (open search drawer → keyword "check" → all dates →
+  // Search) so the walk sees only checks and paginates far less. Best-effort: if
+  // any step's element is missing, we bail and capture runs against the unfiltered
+  // list (old behavior). The extension's own date cutoff still applies downstream,
+  // so "all dates" here is safe.
+  const KEYWORDS_SEL = '[data-testid="keywords-text-input"], #keywords';
+  // React controls these inputs; assigning .value directly is ignored. Set through
+  // the prototype's native setter, then dispatch the event React listens for.
+  function setNativeValue(el, proto, val, eventType) {
+    const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+    desc.set.call(el, val);
+    el.dispatchEvent(new Event(eventType, { bubbles: true }));
+  }
+  async function filterToChecks() {
+    // Open the drawer if the keyword field isn't already present.
+    if (!document.querySelector(KEYWORDS_SEL)) {
+      const toggle = document.querySelector(
+        '[allytmln="transactionHistory-search"], [data-testid="open-search-drawer-button"], [data-testid="close-search-drawer-button"]'
+      );
+      if (!toggle) return false;
+      toggle.click();
+      const t0 = Date.now();
+      while (Date.now() - t0 < 5000 && !document.querySelector(KEYWORDS_SEL)) await sleep(200);
+    }
+    const input = document.querySelector(KEYWORDS_SEL);
+    if (!input) return false;
+    setNativeValue(input, window.HTMLInputElement.prototype, 'check', 'input');
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    const dateSel = document.querySelector('[data-testid="date-picker"], #dateRange');
+    if (dateSel) setNativeValue(dateSel, window.HTMLSelectElement.prototype, 'all', 'change');
+
+    const submit = document.querySelector('[data-testid="search-submit-button"]');
+    if (!submit) return false;
+    submit.click();
+
+    // Settle: wait until every visible transaction row is a check (filter applied)
+    // or we time out. Heartbeat so the popup doesn't read the wait as a stall.
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+      await sleep(500);
+      const total = countTransactionRows();
+      if (total > 0 && findCheckRows().length === total) break;
+      send({ type: 'capture/heartbeat' });
+    }
+    await sleep(500);
+    return true;
   }
 
   // --- main run ---
@@ -196,6 +256,9 @@
     const cutoff = cutoffISO ? new Date(cutoffISO) : null;
     const done = new Set((processed || []).map(String));
     let captured = 0, pages = 0;
+
+    try { await filterToChecks(); }
+    catch (e) { console.warn('[ally-checks] filterToChecks skipped:', (e && e.message) || e); }
 
     while (true) {
       const rows = findCheckRows();
@@ -219,7 +282,7 @@
       for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
         try {
           const out = await processCheck(next.checkNumber);
-          send({ type: 'capture/check', record: out.record, stripB64: out.stripB64 });
+          send({ type: 'capture/check', record: out.record, stripB64: out.stripB64, fullB64: out.fullB64 });
           captured++;
           ok = true;
           send({ type: 'capture/progress', captured, checkNumber: next.checkNumber, date: next.dateText });
