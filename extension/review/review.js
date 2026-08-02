@@ -124,7 +124,7 @@ $('rows').addEventListener('click', async (e) => {
     frame.dataset.loaded = '1';
     const blob = await getFull(check);
     if (!blob) {
-      frame.innerHTML = '<span class="ph">no full image stored — recapture this check to get one</span>';
+      frame.innerHTML = '<span class="ph">no full image — cleared after sync, or captured before this feature; recapture to get one</span>';
     } else {
       const img = document.createElement('img');
       img.alt = 'full check ' + check;

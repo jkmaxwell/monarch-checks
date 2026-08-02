@@ -4,6 +4,7 @@
 // used to match or skip. Supports a dry-run (plan + log, write nothing).
 import * as monarch from './monarch.js';
 import * as storage from '../lib/storage.js';
+import * as idb from '../lib/idb.js';
 import { normalize } from '../lib/normalize.js';
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -101,10 +102,12 @@ export async function run({ dryRun }) {
   // checks out of the review queue (and resurface them only if edited later). Not
   // in dry-run — that mode writes nothing, local or Monarch.
   let stampedAny = false;
+  const dropFull = []; // full images to delete once synced (audit no longer needed)
   const stampReconciled = (rec, e) => {
     if (dryRun) return;
     rec.reconciled = { at: Date.now(), transactionId: e.transaction_id || null, merchant_id: e.merchant_id || null, recipient: e.recipient };
     stampedAny = true;
+    dropFull.push(rec.checkNumber);
   };
   await storage.set('runLog', []);
   await storage.patch('runState', { dryRun: Boolean(dryRun), total: checks.length, i: 0, checkNumber: null });
@@ -208,5 +211,8 @@ export async function run({ dryRun }) {
 
   await storage.set('runLog', log);
   if (stampedAny) await storage.set('dataset', dataset); // persist reconciliation stamps
+  // Drop full images for synced checks — the strip stays for reference; the full
+  // was only for reading a missed crop pre-sync. Frees storage / shrinks backups.
+  for (const n of dropFull) { try { await idb.deleteFull(n); } catch {} }
   return { log, merges, dryRun };
 }

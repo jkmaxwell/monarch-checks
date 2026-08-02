@@ -104,6 +104,15 @@ export async function allFulls() {
   });
 }
 
+export async function deleteFull(checkNumber) {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const r = tx(db, 'readwrite', FULLS).delete(String(checkNumber));
+    r.onsuccess = () => resolve();
+    r.onerror = () => reject(r.error);
+  });
+}
+
 export async function clearFulls() {
   const db = await open();
   return new Promise((resolve, reject) => {
