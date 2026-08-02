@@ -31,6 +31,8 @@ async function handle(msg, sender) {
       return await storage.get('dataset');
     case 'dataset/setRecipient':
       return await setRecipient(msg);
+    case 'merchants/search':
+      return await searchMerchants(msg);
     case 'status/get':
       return await storage.get('runState');
     case 'runlog/get':
@@ -229,6 +231,7 @@ async function exportData() {
     dataset: await storage.get('dataset'),
     history: await storage.get('history'),
     normalizationMap: await storage.get('normalizationMap'),
+    merchantIdMap: await storage.get('merchantIdMap'),
     runLog: await storage.get('runLog'),
     strips,
     fulls,
@@ -244,6 +247,7 @@ async function importData(snapshot) {
   await storage.set('dataset', snapshot.dataset);
   await storage.set('history', snapshot.history || { processed: [], newestCheckNumber: null });
   if (snapshot.normalizationMap) await storage.set('normalizationMap', snapshot.normalizationMap);
+  if (snapshot.merchantIdMap) await storage.set('merchantIdMap', snapshot.merchantIdMap);
   if (snapshot.runLog) await storage.set('runLog', snapshot.runLog);
   let strips = 0;
   for (const [n, b64] of Object.entries(snapshot.strips || {})) {
@@ -301,15 +305,49 @@ async function probeMonarch({ checkNumber }) {
   return { check: rec, txByNumber, merchants };
 }
 
-async function setRecipient({ checkNumber, recipient, confidence }) {
+async function setRecipient({ checkNumber, recipient, confidence, original, merchantId }) {
   const list = await storage.get('dataset');
   const r = list.find((x) => String(x.checkNumber) === String(checkNumber));
+  const clean = String(recipient || '').trim();
   if (r) {
-    r.recipient = String(recipient || '').trim();
+    // If this edit changes what was reconciled, drop the stamp so the check
+    // returns to the review queue (a genuine reason to re-verify + re-push).
+    if (r.reconciled && (r.reconciled.recipient !== clean || (r.reconciled.merchant_id || null) !== (merchantId || null))) {
+      delete r.reconciled;
+    }
+    r.recipient = clean;
     r.confidence = confidence || 'high'; // user-verified
+    if (merchantId) r.merchantId = merchantId; else delete r.merchantId;
     await storage.set('dataset', list);
   }
+  // Learn the OCR→correction alias so the same misread self-corrects next time.
+  const from = String(original || '').trim();
+  if (from && clean && from.toLowerCase() !== clean.toLowerCase()) {
+    const map = await storage.get('normalizationMap');
+    map[from] = clean;
+    await storage.set('normalizationMap', map);
+  }
+  // Remember the canonical name → Monarch merchant id so reconcile assigns by id.
+  if (clean && merchantId) {
+    const idMap = await storage.get('merchantIdMap');
+    idMap[clean] = merchantId;
+    await storage.set('merchantIdMap', idMap);
+  }
   return { ok: true };
+}
+
+// Merchant-name suggestions for the review autocomplete. Official MCP only —
+// local mode has no merchant search (returns []), and an unconnected/erroring
+// Monarch also returns [] so the UI just falls back to corrected-name history.
+async function searchMerchants({ query } = {}) {
+  try {
+    if (await monarch.isLocal()) return { merchants: [] };
+    const resp = await monarch.getMerchants(query || null, 100);
+    const list = Array.isArray(resp && resp.merchants) ? resp.merchants : [];
+    return { merchants: list.map((m) => ({ name: m.name, merchant_id: m.merchant_id })) };
+  } catch (e) {
+    return { merchants: [], error: String((e && e.message) || e) };
+  }
 }
 
 // Phase 2: extract recipients for dataset records that don't have one yet.

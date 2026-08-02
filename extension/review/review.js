@@ -9,6 +9,8 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 let records = [];
+let merchants = [];              // [{ name, merchant_id }] from Monarch (official MCP)
+let merchantByName = new Map();  // lowercased name → merchant_id, for id capture on save
 
 // "1800.00" -> "1,800.00" (falls back to the raw string for non-numbers)
 function fmtAmount(a) {
@@ -28,23 +30,58 @@ window.addEventListener('resize', syncStickyOffset);
 async function load() {
   records = (await send({ type: 'dataset/get' })) || [];
   render();
+  // Pull the Monarch merchant list for autocomplete + id capture. Best-effort:
+  // empty in local mode or if Monarch isn't connected, so this never blocks the
+  // page — it just re-renders the datalist once names arrive.
+  const mres = await send({ type: 'merchants/search' });
+  merchants = (mres && mres.merchants) || [];
+  merchantByName = new Map(
+    merchants.filter((m) => m && m.name).map((m) => [m.name.trim().toLowerCase(), m.merchant_id])
+  );
+  buildDatalist();
 }
 
+// Suggestions = corrected recipient names (by frequency) then any Monarch
+// merchant names not already listed. Picking a Monarch name lets save() capture
+// its merchant_id so reconcile assigns by id instead of re-matching by string.
 function buildDatalist() {
   const counts = {};
   for (const r of records) { const n = (r.recipient || '').trim(); if (n) counts[n] = (counts[n] || 0) + 1; }
   const names = Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b));
+  const seen = new Set(names.map((n) => n.toLowerCase()));
+  for (const m of merchants) {
+    const n = (m.name || '').trim();
+    if (n && !seen.has(n.toLowerCase())) { names.push(n); seen.add(n.toLowerCase()); }
+  }
   $('recipient-list').innerHTML = names.map((n) => `<option value="${esc(n)}"></option>`).join('');
 }
 
 function render() {
-  $('count').textContent = String(records.length);
   buildDatalist();
+  // Already-reconciled checks drop to the bottom in a group hidden by default —
+  // a re-scan only puts you in front of new or edited checks.
+  const pending = records.filter((r) => !r.reconciled);
+  const done = records.filter((r) => r.reconciled);
+  const ordered = pending.concat(done);
+  const needsReview = pending.filter((r) => r.confidence !== 'high' || !r.recipient).length;
+
+  $('hint').textContent =
+    `${records.length} checks · ${needsReview} need review` +
+    (done.length ? ` · ${done.length} reconciled` : '');
+  const toggle = $('toggle-done');
+  toggle.hidden = done.length === 0;
+  toggle.textContent = document.body.classList.contains('show-done')
+    ? 'Hide reconciled' : `Show ${done.length} reconciled`;
+
   const tbody = $('rows');
   tbody.innerHTML = '';
-  for (const r of records) {
+  for (const r of ordered) {
     const tr = document.createElement('tr');
-    if (r.confidence !== 'high' || !r.recipient) tr.className = 'needs-review';
+    if (r.reconciled) tr.className = 'reconciled';
+    else if (r.confidence !== 'high' || !r.recipient) tr.className = 'needs-review';
+    const conf = r.reconciled
+      ? '<span class="badge synced">✓ in Monarch</span>'
+      : `<span class="badge ${esc(r.confidence || 'low')}">${esc(r.confidence || 'low')}</span>`;
     tr.innerHTML =
       `<td class="num">${esc(r.checkNumber)}</td>` +
       `<td class="strip"><div class="frame" data-check="${esc(r.checkNumber)}">` +
@@ -52,7 +89,7 @@ function render() {
         `<button type="button" class="full-toggle" data-check="${esc(r.checkNumber)}">Crop wrong? Show full check</button>` +
         `<div class="full-frame" data-check="${esc(r.checkNumber)}" hidden></div></td>` +
       `<td class="rec"><input type="text" list="recipient-list" autocomplete="off" value="${esc(r.recipient || '')}" data-check="${esc(r.checkNumber)}"></td>` +
-      `<td class="conf"><span class="badge ${esc(r.confidence || 'low')}">${esc(r.confidence || 'low')}</span></td>` +
+      `<td class="conf">${conf}</td>` +
       `<td class="amt">${esc(fmtAmount(r.amount))}</td>` +
       `<td class="date">${esc(r.date)}</td>`;
     tbody.appendChild(tr);
@@ -106,9 +143,21 @@ $('rows').addEventListener('change', async (e) => {
   if (!input) return;
   const check = input.dataset.check;
   const val = input.value.trim();
-  await send({ type: 'dataset/setRecipient', checkNumber: check, recipient: val, confidence: 'high' });
   const rec = records.find((r) => String(r.checkNumber) === String(check));
-  if (rec) { rec.recipient = val; rec.confidence = 'high'; }
+  const original = rec ? (rec.recipient || '') : ''; // pre-edit value → learned as an alias
+  const merchantId = merchantByName.get(val.toLowerCase()) || null; // matched a real Monarch merchant?
+  await send({ type: 'dataset/setRecipient', checkNumber: check, recipient: val, confidence: 'high', original, merchantId });
+  let wasReconciled = false;
+  if (rec) {
+    // Match the SW's stamp-invalidation: a real change pulls the check back into
+    // the review queue, so re-render to move it out of the reconciled group.
+    if (rec.reconciled && (rec.reconciled.recipient !== val || (rec.reconciled.merchant_id || null) !== (merchantId || null))) {
+      delete rec.reconciled; wasReconciled = true;
+    }
+    rec.recipient = val; rec.confidence = 'high';
+    if (merchantId) rec.merchantId = merchantId; else delete rec.merchantId;
+  }
+  if (wasReconciled) { render(); $('status').textContent = `Saved #${check} — back in review (was reconciled).`; return; }
   buildDatalist(); // corrected names become autocomplete suggestions immediately
   const row = input.closest('tr');
   row.classList.remove('needs-review');
@@ -116,6 +165,12 @@ $('rows').addEventListener('change', async (e) => {
   badge.textContent = 'high';
   badge.className = 'badge high';
   $('status').textContent = `Saved #${check}.`;
+});
+
+// Toggle the collapsed reconciled group.
+$('toggle-done').addEventListener('click', () => {
+  document.body.classList.toggle('show-done');
+  render();
 });
 
 // Export full-field CSV + JSON, client-side.

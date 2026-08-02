@@ -52,7 +52,10 @@ async function locate(rec) {
   return { notFound: true };
 }
 
-async function resolveMerchant(canonical, dryRun) {
+async function resolveMerchant(canonical, dryRun, knownId) {
+  // A review correction that selected a real Monarch merchant already gave us
+  // the id — assign by it directly, no name search (which drifts / dupes).
+  if (knownId) return { merchant_id: knownId, created: false };
   const ms = merList(await monarch.getMerchants(canonical, 50));
   const exact = ms.find((m) => norm(m.name) === norm(canonical));
   if (exact) return { merchant_id: exact.merchant_id, created: false };
@@ -84,6 +87,7 @@ export async function run({ dryRun }) {
   // links-or-creates server-side, so the resolve and merge steps don't apply.
   const local = await monarch.isLocal();
   const map = await storage.get('normalizationMap');
+  const idMap = await storage.get('merchantIdMap');
   const dataset = await storage.get('dataset');
   const checks = dataset.filter((r) => r.recipient); // can't assign without a recipient
   const log = [];
@@ -93,6 +97,15 @@ export async function run({ dryRun }) {
   // runState) so the review page can poll it — broadcasts alone are lost when
   // Dia discards or reloads the tab mid-run.
   const emit = async (entry) => { log.push(entry); progress({ entry }); await storage.set('runLog', log); };
+  // Persist a per-check reconciliation stamp so the review page can drop settled
+  // checks out of the review queue (and resurface them only if edited later). Not
+  // in dry-run — that mode writes nothing, local or Monarch.
+  let stampedAny = false;
+  const stampReconciled = (rec, e) => {
+    if (dryRun) return;
+    rec.reconciled = { at: Date.now(), transactionId: e.transaction_id || null, merchant_id: e.merchant_id || null, recipient: e.recipient };
+    stampedAny = true;
+  };
   await storage.set('runLog', []);
   await storage.patch('runState', { dryRun: Boolean(dryRun), total: checks.length, i: 0, checkNumber: null });
 
@@ -129,12 +142,13 @@ export async function run({ dryRun }) {
 
     if (!isGeneric(tx.merchant) && norm(tx.merchant) === norm(canonical)) {
       e.status = 'skipped'; e.flagReason = 'already assigned'; e.merchant_id = tx.merchant_id;
+      stampReconciled(rec, e); // correctly in Monarch already — treat as settled
       await emit(e); continue;
     }
 
     let mr = { merchant_id: null, created: false };
     if (!local) {
-      try { mr = await resolveMerchant(canonical, dryRun); }
+      try { mr = await resolveMerchant(canonical, dryRun, rec.merchantId || idMap[canonical]); }
       catch (err) { e.status = 'flagged'; e.flagReason = 'merchant resolve: ' + err.message; await emit(e); continue; }
       e.merchant_id = mr.merchant_id; e.merchantCreated = mr.created;
     }
@@ -169,6 +183,7 @@ export async function run({ dryRun }) {
       // Verify by id (official) or by the assigned name (local, no merchant_id).
       const verified = local ? vt && norm(vt.merchant) === norm(canonical) : vt && vt.merchant_id === mr.merchant_id;
       e.status = verified ? 'written' : 'written (unverified)';
+      stampReconciled(rec, e);
     } catch (err) { e.status = 'flagged'; e.flagReason = 'write failed: ' + err.message; }
     await emit(e);
   }
@@ -192,5 +207,6 @@ export async function run({ dryRun }) {
   }
 
   await storage.set('runLog', log);
+  if (stampedAny) await storage.set('dataset', dataset); // persist reconciliation stamps
   return { log, merges, dryRun };
 }

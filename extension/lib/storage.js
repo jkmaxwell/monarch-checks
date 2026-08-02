@@ -11,6 +11,10 @@ const DEFAULTS = {
   // Payee-name fixups ({ misread → canonical }). Personal entries live in
   // chrome.storage / backups only — never seed real names in source.
   normalizationMap: {},
+  // Canonical payee name → Monarch merchant_id, learned when a review correction
+  // selects an existing Monarch merchant. Lets reconcile assign by stable id
+  // instead of re-matching by name (which drifts and spawns duplicates).
+  merchantIdMap: {},
   monarchAuth: null, // { clientId, accessToken, refreshToken, expiresAt, scopes }
   runLog: [],
   dataset: [], // working per-check records (accumulates across runs, deduped by checkNumber)

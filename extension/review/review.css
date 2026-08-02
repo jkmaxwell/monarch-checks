@@ -171,6 +171,13 @@ td.rec input::-webkit-calendar-picker-indicator { opacity: .4; }
 tr.needs-review { background: #fbf3ec; }
 tr.needs-review td.rec input { border: 2px solid var(--accent); padding: 9px 11px; }
 
+/* Reconciled checks: hidden by default (a re-scan shouldn't re-surface settled
+   work), revealed via the header toggle, and muted when shown. */
+tr.reconciled { display: none; }
+body.show-done tr.reconciled { display: table-row; opacity: .62; }
+tr.reconciled td.rec input { border-color: var(--line-soft); background: #f7f5f1; }
+.badge.synced { color: #2e7d43; background: #e7f2e7; }
+
 #recon { padding: 8px 28px 24px; }
 #recon h2 { font-size: 15px; font-weight: 800; }
 .reconlog { list-style: none; margin: 8px 0 0; padding: 0; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
