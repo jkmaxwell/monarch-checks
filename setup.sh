@@ -65,14 +65,15 @@ esac
 say "Scripted setup complete. Finish in the browser:"
 cat <<EOF
 
-  1. Start the bridge (leave it running while you use the extension):
-       $REPO_ROOT/scripts/monarch-mcp-http.sh
-     It listens on http://127.0.0.1:8642/mcp  (localhost only).
-
-  2. Load the extension:
+  1. Load the extension:
        browser -> chrome://extensions  (Dia: dia://extensions)
        -> enable Developer mode -> Load unpacked -> select:
        $REPO_ROOT/extension
+     Copy its ID from that page.
+
+  2. Start the bridge at login (it only accepts that extension's ID):
+       ALLY_CHECKS_EXTENSION_ID=<id> $REPO_ROOT/scripts/install-autostart.sh
+     It listens on http://127.0.0.1:8642/mcp  (localhost only).
 
   3. Configure Settings (extension popup -> Settings):
        - paste your Claude API key  (https://console.anthropic.com)

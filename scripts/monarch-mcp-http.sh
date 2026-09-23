@@ -2,11 +2,14 @@
 # Serve robcerda/monarch-mcp-server over streamable HTTP for the Ally Checks
 # extension (its default is stdio, which a browser extension can't speak).
 #
-#   scripts/monarch-mcp-http.sh [port]
+#   ALLY_CHECKS_EXTENSION_ID=<id> scripts/monarch-mcp-http.sh [port]
+#
+# ALLY_CHECKS_EXTENSION_ID is the extension's ID from chrome://extensions
+# (Dia: dia://extensions). The server rejects browser Origins it doesn't know
+# (HTTP 400), so without it the extension can't connect.
 #
 # MONARCH_MCP_DIR defaults to ~/dev/monarch-mcp-server (where the README tells
-# you to clone it); set it only if your checkout lives elsewhere:
-#   MONARCH_MCP_DIR=~/path/to/monarch-mcp-server scripts/monarch-mcp-http.sh [port]
+# you to clone it); set it only if your checkout lives elsewhere.
 #
 # Endpoint: http://127.0.0.1:<port>/mcp   (default port 8642 — matches the
 # extension's default; change both together). Auth to Monarch comes from the
@@ -19,9 +22,11 @@ if [ ! -d "$DIR" ]; then
   exit 1
 fi
 PORT="${1:-8642}"
-exec uv run --directory "$DIR" python -c "
-from monarch_mcp_server.app import mcp
-mcp.settings.host = '127.0.0.1'
-mcp.settings.port = $PORT
-mcp.run(transport='streamable-http')
-"
+if [ -n "$ALLY_CHECKS_EXTENSION_ID" ]; then
+  set -- --allowed-origin "chrome-extension://$ALLY_CHECKS_EXTENSION_ID"
+else
+  echo "warning: ALLY_CHECKS_EXTENSION_ID not set — the extension's requests will be rejected (400)" >&2
+  set --
+fi
+exec uv run --directory "$DIR" --locked monarch-mcp-server \
+  --transport http --host 127.0.0.1 --port "$PORT" "$@"
