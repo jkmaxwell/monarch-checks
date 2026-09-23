@@ -89,6 +89,11 @@ Alternatively, clone this repo, `cd` into it, run `claude`, and paste:
    It defaults to `~/dev/monarch-mcp-server`; set `MONARCH_MCP_DIR` only if your
    checkout is elsewhere. It listens on `http://127.0.0.1:8642/mcp`, localhost
    only, no auth. Your Monarch credentials stay in the keychain.
+
+   To have it start at login and restart if it exits, run
+   `./scripts/install-autostart.sh` instead (`--uninstall` removes it). After
+   re-running `login_setup.py`, restart it so it picks up the new session:
+   `launchctl kickstart -k gui/$(id -u)/com.monarch-checks.mcp-http`.
 4. Load the extension: browser → `chrome://extensions` (Dia:
    `dia://extensions`) → enable Developer mode → Load unpacked → select this
    repo's `extension/` directory.
