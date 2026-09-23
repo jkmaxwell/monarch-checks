@@ -12,6 +12,14 @@ import * as reconcile from './reconcile.js';
 
 chrome.runtime.onInstalled.addListener(() => console.log('Ally Checks installed'));
 
+// Reconcile runs entirely inside this worker, so a fresh worker means any run
+// marked active died with the old one (terminated mid-run). Clear it, or the
+// review page shows "Reconciling…" forever with the buttons disabled.
+(async () => {
+  const rs = await storage.get('runState');
+  if (rs && rs.active === 'reconcile') await storage.set('runState', { ...rs, active: null });
+})();
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   handle(msg, sender)
     .then(sendResponse)

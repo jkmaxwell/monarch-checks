@@ -112,6 +112,7 @@ export async function run({ dryRun }) {
   const log = [];
   const touched = new Set();
   let hiddenCount = 0;
+  let fatal = null; // 401/429 from Monarch: every later call fails the same way — stop
   // Persist progress as it happens (log after every entry, position in
   // runState) so the review page can poll it — broadcasts alone are lost when
   // Dia discards or reloads the tab mid-run.
@@ -139,7 +140,20 @@ export async function run({ dryRun }) {
 
     let loc;
     try { loc = await locate(rec); }
-    catch (err) { e.status = 'flagged'; e.flagReason = 'locate error: ' + err.message; await emit(e); continue; }
+    catch (err) {
+      e.status = 'flagged'; e.flagReason = 'locate error: ' + err.message; await emit(e);
+      // Grinding on after an auth failure or rate limit just burns more requests
+      // (and a 429 storm can get the session revoked) — stop the run here.
+      if (/\b401\b|Unauthorized/.test(err.message)) {
+        fatal = 'Monarch rejected the saved login (401). Re-run login_setup.py in monarch-mcp-server, then reconcile again.';
+        break;
+      }
+      if (/\b429\b|Too Many Requests/.test(err.message)) {
+        fatal = 'Monarch is rate-limiting (429). Wait ~30 minutes before reconciling again.';
+        break;
+      }
+      continue;
+    }
     if (loc.hidden) {
       e.status = 'flagged'; e.flagReason = 'in Monarch, but its MCP hides Plaid-connected accounts';
       await emit(e);
@@ -222,7 +236,7 @@ export async function run({ dryRun }) {
   // End-of-run duplicate-merchant sweep for every payee touched (official MCP
   // only — the local server assigns by name, which can't create duplicates).
   const merges = [];
-  for (const canonical of local ? [] : touched) {
+  for (const canonical of local || fatal ? [] : touched) {
     try {
       const ms = merList(await monarch.getMerchants(canonical, 50)).filter((m) => norm(m.name) === norm(canonical));
       if (ms.length > 1) {
@@ -242,5 +256,5 @@ export async function run({ dryRun }) {
   // Drop full images for synced checks — the strip stays for reference; the full
   // was only for reading a missed crop pre-sync. Frees storage / shrinks backups.
   for (const n of dropFull) { try { await idb.deleteFull(n); } catch {} }
-  return { log, merges, dryRun };
+  return { log, merges, dryRun, ...(fatal ? { error: fatal } : {}) };
 }

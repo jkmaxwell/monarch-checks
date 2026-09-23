@@ -194,7 +194,18 @@ async function rpc(method, params, retryAuth = true) {
   }
   const sid = resp.headers.get('Mcp-Session-Id');
   if (sid) sessionId = sid;
-  if (!resp.ok) throw new Error('MCP ' + method + ' HTTP ' + resp.status + ' ' + (await resp.text()).slice(0, 200));
+  if (!resp.ok) {
+    const body = (await resp.text()).slice(0, 200);
+    // The server forgot our session (it restarted): spec says 404, the Python
+    // SDK sends 400 "No valid session ID". Re-initialize once and retry.
+    if (sessionId && method !== 'initialize' && retryAuth &&
+        (resp.status === 404 || (resp.status === 400 && /session/i.test(body)))) {
+      sessionId = null;
+      await ensureSession();
+      return rpc(method, params, false);
+    }
+    throw new Error('MCP ' + method + ' HTTP ' + resp.status + ' ' + body);
+  }
   const ct = resp.headers.get('content-type') || '';
   const data = ct.includes('text/event-stream') ? parseSse(await resp.text()) : await resp.json();
   if (data.error) throw new Error('MCP ' + method + ' error: ' + JSON.stringify(data.error));
