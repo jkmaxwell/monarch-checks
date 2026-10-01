@@ -22,7 +22,8 @@ third-party bridge you run locally (see Dependencies).
   20 minutes.
 - You have, or will create, an **Anthropic account** with API access. Payee
   extraction uses Claude and costs a few cents per batch.
-- You are on **macOS** with a Chromium browser.
+- You are on **macOS** with a Chromium browser (Chrome, Dia, Arc, Brave,
+  Edge, Vivaldi).
 - You are patient with slow capture: Ally serves check images at about
   1–2 minutes each and throttles, so a few hundred checks takes several
   sessions.
