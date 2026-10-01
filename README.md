@@ -12,6 +12,9 @@ setup, a run is: log in to Ally, click Capture, spend a few minutes confirming
 names, click Reconcile. Every check lands in Monarch with the right merchant
 and category, and checks you have already done are skipped.**
 
+> [!NOTE]
+> Do you write checks with other banks? This project needs your help.
+
 Flow: capture check images from your Ally transaction page → crop the payee line
 in-page → Claude vision reads the payee → review and correct in a table →
 reconcile writes the merchant and category to each matching Monarch transaction.
