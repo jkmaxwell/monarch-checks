@@ -82,6 +82,8 @@ async function handle(msg, sender) {
       return await mcp.revoke();
     case 'monarch/tools':
       return await mcp.listTools();
+    case 'monarch/ready':
+      return await monarchReady();
     case 'monarch/probe':
       return await probeMonarch(msg);
     case 'reconcile/run':
@@ -399,4 +401,22 @@ async function runExtract() {
     }
   }
   return { extracted: done };
+}
+
+// Popup setup checklist: can we reach Monarch right now? Bounded to 4 s so the
+// popup never hangs on a dead socket; errors come back as data, not throws.
+async function monarchReady() {
+  let st;
+  try { st = await mcp.status(); } catch (e) { return { ok: false, mode: 'local', error: String((e && e.message) || e) }; }
+  if (st.mode === 'official' && !st.connected) return { ok: false, mode: 'official', error: 'not connected' };
+  let timer;
+  const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('timed out after 4s')), 4000); });
+  try {
+    const r = await Promise.race([mcp.listTools(), timeout]);
+    return { ok: true, mode: st.mode, tools: ((r && r.tools) || []).length };
+  } catch (e) {
+    return { ok: false, mode: st.mode, error: String((e && e.message) || e) };
+  } finally {
+    clearTimeout(timer);
+  }
 }
