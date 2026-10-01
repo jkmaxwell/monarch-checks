@@ -18,6 +18,19 @@
   </header>
   <p id="runbanner" class="pill idle" role="status"><span class="dot"></span><span id="runbanner-text">Checking…</span></p>
 
+  <section id="setup" class="card setup">
+    <div class="row spread">
+      <div class="card-label">Setup</div>
+      <a href="#" id="setup-toggle" hidden>Details</a>
+    </div>
+    <p id="setup-done" class="hint ok" hidden>Setup complete</p>
+    <ul id="setup-rows" class="checks">
+      <li data-check="key"><span class="dot"></span><span class="name">Claude API key</span><span class="state"></span><a href="#" class="fix" hidden></a></li>
+      <li data-check="ally"><span class="dot"></span><span class="name">Ally tab</span><span class="state"></span><a href="#" class="fix" hidden></a></li>
+      <li data-check="bridge"><span class="dot"></span><span class="name">Monarch bridge</span><span class="state"></span><a href="#" class="fix" hidden></a></li>
+    </ul>
+  </section>
+
   <section id="capture" class="card">
     <div class="card-label">Capture</div>
     <div class="row">
@@ -30,6 +43,7 @@
       </select>
       <button id="capture-btn">Capture</button>
     </div>
+    <p class="hint">About 1 to 2 minutes per check; Ally throttles. Keeps running when the popup is closed.</p>
     <div class="row util">
       <input id="recheck-num" type="text" placeholder="Check #" />
       <button id="recheck-btn" class="secondary">Re-capture this #</button>

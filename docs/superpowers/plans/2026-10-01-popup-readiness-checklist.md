@@ -332,7 +332,7 @@ Append to `extension/dashboard/dashboard.css`:
 ```css
 /* setup checklist */
 .checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.checks li { display: grid; grid-template-columns: 8px auto 1fr auto; align-items: baseline; column-gap: 8px; font-size: 13px; }
+.checks li { display: grid; grid-template-columns: 8px 104px 1fr auto; align-items: baseline; column-gap: 8px; font-size: 13px; }
 .checks .dot { width: 8px; height: 8px; border-radius: 50%; align-self: center; background: #a8a294; }
 .checks li[data-state="ok"] .dot { background: #2e9e5b; }
 .checks li[data-state="bad"] .dot { background: var(--accent); }
@@ -355,24 +355,7 @@ import { keyRow, allyRow, bridgeRow, allOk } from '../lib/readiness.js';
 import { bank } from '../lib/banks.js';
 ```
 
-Then replace the existing `settings/get` block:
-
-```js
-chrome.runtime.sendMessage({ type: 'settings/get' }, (s) => {
-  if (s && s.defaultWindowMonths != null) $('window').value = String(s.defaultWindowMonths);
-});
-```
-
-with:
-
-```js
-chrome.runtime.sendMessage({ type: 'settings/get' }, (s) => {
-  if (s && s.defaultWindowMonths != null) $('window').value = String(s.defaultWindowMonths);
-});
-runSetupChecks();
-```
-
-Append this block to the end of `extension/dashboard/dashboard.js`:
+Append this block to the end of `extension/dashboard/dashboard.js`. The `runSetupChecks()` kick-off is the last line of the block on purpose: it uses module-level `const`s (`send`, `setupTimer`), which are not hoisted, so calling it from the init section near the top throws `Cannot access 'send' before initialization`.
 
 ```js
 // --- setup checklist ---
@@ -454,6 +437,9 @@ function setBusy(b) {
   // Extract also needs an API key; the setup check owns that part of the flag.
   $('extract-btn').disabled = b || document.querySelector('#setup-rows li[data-check="key"]').dataset.state !== 'ok';
 }
+
+// Kick off after the helpers above exist (module-level consts are not hoisted).
+runSetupChecks();
 ```
 
 - [ ] **Step 4: Syntax-check and run the unit tests**
