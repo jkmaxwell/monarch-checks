@@ -21,7 +21,9 @@ cropped payee strip is sent to the Claude API. Monarch writes go through a
 third-party bridge you run locally (see Dependencies).
 
 > [!NOTE]
-> Do you write checks with other banks? This project needs your help.
+> Do you write checks with other banks? This project needs your help:
+> [open an issue](https://github.com/jkmaxwell/monarch-checks/issues) with your
+> bank's name.
 
 ## Who this is for
 
