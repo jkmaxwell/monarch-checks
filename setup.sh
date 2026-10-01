@@ -69,10 +69,9 @@ cat <<EOF
        browser -> chrome://extensions  (Dia: dia://extensions)
        -> enable Developer mode -> Load unpacked -> select:
        $REPO_ROOT/extension
-     Copy its ID from that page.
 
-  2. Start the bridge at login (it only accepts that extension's ID):
-       ALLY_CHECKS_EXTENSION_ID=<id> $REPO_ROOT/scripts/install-autostart.sh
+  2. Start the bridge at login:
+       $REPO_ROOT/scripts/install-autostart.sh
      It listens on http://127.0.0.1:8642/mcp  (localhost only).
 
   3. Configure Settings (extension popup -> Settings):

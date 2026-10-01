@@ -59,10 +59,10 @@ Alternatively, clone this repo, `cd` into it, run `claude`, and paste:
 > https://github.com/robcerda/monarch-mcp-server to ~/dev/monarch-mcp-server if
 > it isn't already somewhere on disk; (3) walk me through its `login_setup.py`
 > interactively so my Monarch session lands in the keychain; (4) walk me
-> through loading `extension/` as an unpacked extension in my browser and get
-> its ID; (5) run `scripts/install-autostart.sh` with ALLY_CHECKS_EXTENSION_ID
-> set and verify http://127.0.0.1:8642/mcp answers an MCP initialize sent with
-> that extension's Origin; (6) then walk me through configuring its Settings
+> through loading `extension/` as an unpacked extension in my browser; (5) run
+> `scripts/install-autostart.sh` and verify http://127.0.0.1:8642/mcp answers
+> an MCP initialize sent with the extension's Origin
+> (chrome-extension://efchglphphlccjofdnfjopohdmgdlopd); (6) then walk me through configuring its Settings
 > (Claude API key, Bank, Monarch connection = local MCP server → List tools to verify). Verify each
 > step actually worked before moving on, and tell me exactly what to do for the
 > steps you can't do yourself (keychain prompts, browser UI, logins).
@@ -85,16 +85,17 @@ Alternatively, clone this repo, `cd` into it, run `claude`, and paste:
    Always Allow.
 3. Load the extension: browser → `chrome://extensions` (Dia:
    `dia://extensions`) → enable Developer mode → Load unpacked → select this
-   repo's `extension/` directory. Copy its ID from that page.
-4. Start the bridge at login, passing the extension's ID (the server rejects
-   browser origins it doesn't know):
+   repo's `extension/` directory. Its ID is always `efchglphphlccjofdnfjopohdmgdlopd`
+   (pinned by the `key` in `manifest.json`), so the bridge already allows it.
+4. Start the bridge at login:
    ```sh
-   ALLY_CHECKS_EXTENSION_ID=<id> ./scripts/install-autostart.sh
+   ./scripts/install-autostart.sh
    ```
    This installs a LaunchAgent that runs `scripts/monarch-mcp-http.sh` (the
    server's own `--transport http` mode) at login and restarts it if it exits;
    `--uninstall` removes it. To run it once in a terminal instead:
-   `ALLY_CHECKS_EXTENSION_ID=<id> ./scripts/monarch-mcp-http.sh`.
+   `./scripts/monarch-mcp-http.sh`. If you changed the extension and its ID
+   differs, pass `ALLY_CHECKS_EXTENSION_ID=<id>` to either script.
 
    It defaults to `~/dev/monarch-mcp-server`; set `MONARCH_MCP_DIR` only if your
    checkout is elsewhere. It listens on `http://127.0.0.1:8642/mcp`, localhost
@@ -127,7 +128,7 @@ Import backup restores it.
 | Symptom | Cause / fix |
 |---|---|
 | "Local MCP server unreachable" | The bridge isn't running — step 4 above |
-| `MCP initialize HTTP 400 … Invalid Origin` | The bridge doesn't know this extension's ID (it changes if you load the extension from a new path) — re-run step 4 with the current ID |
+| `MCP initialize HTTP 400 … Invalid Origin` | The bridge doesn't know this extension's ID — the extensions page should show `efchglphphlccjofdnfjopohdmgdlopd`; if it doesn't, the manifest `key` was changed; re-run step 4 with `ALLY_CHECKS_EXTENSION_ID=<id>` |
 | Reconcile flags "in Monarch, but its MCP hides Plaid-connected accounts" | You're on the official Monarch connection; switch Settings to the local bridge (or migrate the Ally connection off Plaid in Monarch) |
 | `DCR failed: 403 … CSRF` connecting official Monarch | Fixed in current code (cookies are never sent); pull latest |
 | Extension vanished from the browser | The browser dropped it on an update — reload unpacked, re-enter the API key, Import backup |

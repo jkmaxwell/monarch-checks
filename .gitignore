@@ -5,3 +5,4 @@ downloads/
 pipeline/out/
 pipeline/strips/
 .env
+*.pem

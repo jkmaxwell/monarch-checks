@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "Check Payee to Monarch",
   "version": "0.1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5ZN//p75Rd1YLJSHJ/kcKdOnM16/K1OYPjRYmsR7V43ffGyXhgxt2DS+vfTKX7+AfWWw7m41nGwSCiH8ykMQ2NU8+P3/3ipRVxFuohEtLbM7qXT1NoXYiVQlJr+LY7157QLU8qjYvVkh+Qk19GExFWhLMPTWikISL28uj1FFXrgoNk3DHfR7H1tzSrehfRKzHRhS3lL2x0Xenjo6O4scVPJj8YY9T3+BjJjdOxsntWMGlOAdcS2iASE2cZMGh6clez1YhdtZIqxC7HTJdy3qL4Z/+TDqn70/4tsHyrCyvMhnG9WDdtIIdywkmBrfCxZ56xu0Q6XeQkawbZseXtoLGwIDAQAB",
   "description": "Capture Ally checks, extract recipients with Claude, reconcile into Monarch.",
   "permissions": ["identity", "storage", "alarms", "unlimitedStorage", "scripting"],
   "host_permissions": [

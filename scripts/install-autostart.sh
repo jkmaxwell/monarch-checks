@@ -2,11 +2,12 @@
 # Run scripts/monarch-mcp-http.sh as a macOS LaunchAgent: starts at login,
 # restarts if it exits. Same port/dir defaults as the script itself.
 #
-#   ALLY_CHECKS_EXTENSION_ID=<id> scripts/install-autostart.sh  # install/reinstall + start
-#   scripts/install-autostart.sh --uninstall                     # stop + remove
+#   scripts/install-autostart.sh              # install/reinstall + start
+#   scripts/install-autostart.sh --uninstall  # stop + remove
 #
-# The extension ID is baked into the agent (see monarch-mcp-http.sh for why);
-# re-run this if the ID changes (e.g. the extension is loaded from a new path).
+# The extension's ID is pinned by extension/manifest.json, so no ID is needed.
+# Set ALLY_CHECKS_EXTENSION_ID only for a modified extension with a different
+# ID; it is baked into the agent, so re-run this if it changes.
 #
 # Logs: ~/Library/Logs/monarch-mcp-http.log
 # After re-running login_setup.py, restart it to pick up the new session:
@@ -31,11 +32,6 @@ if [ "$1" = "--uninstall" ]; then
   exit 0
 fi
 
-if [ -z "$ALLY_CHECKS_EXTENSION_ID" ]; then
-  echo "Set ALLY_CHECKS_EXTENSION_ID to the extension's ID (dia://extensions or chrome://extensions)." >&2
-  exit 1
-fi
-
 # launchd starts with a bare PATH; uv usually lives in Homebrew's bin.
 UV_DIR="$(dirname "$(command -v uv)")"
 mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
@@ -48,8 +44,8 @@ cat > "$PLIST" <<EOF
   <key>ProgramArguments</key><array><string>$SCRIPT</string></array>
   <key>EnvironmentVariables</key><dict>
     <key>PATH</key><string>$UV_DIR:/usr/bin:/bin:/usr/sbin:/sbin</string>
-    <key>ALLY_CHECKS_EXTENSION_ID</key><string>$ALLY_CHECKS_EXTENSION_ID</string>
-    <key>MONARCH_MCP_DIR</key><string>${MONARCH_MCP_DIR:-$HOME/dev/monarch-mcp-server}</string>
+${ALLY_CHECKS_EXTENSION_ID:+    <key>ALLY_CHECKS_EXTENSION_ID</key><string>$ALLY_CHECKS_EXTENSION_ID</string>
+}    <key>MONARCH_MCP_DIR</key><string>${MONARCH_MCP_DIR:-$HOME/dev/monarch-mcp-server}</string>
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
