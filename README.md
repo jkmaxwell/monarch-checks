@@ -109,7 +109,9 @@ Alternatively, clone this repo, `cd` into it, run `claude`, and paste:
 ## Usage
 
 1. Log into Ally and open the account's transaction page (the one with
-   `Check Paid #…` rows). Leave the tab open.
+   `Check Paid #…` rows). Leave the tab open. The popup's Setup card shows
+   three rows: Claude API key, Ally tab, Monarch bridge. All three green
+   before you start; each red row has a fix link.
 2. Extension popup → pick a history window → Capture. Ally serves check images
    slowly (about 1–2 min each) and throttles. The run stops cleanly when
    throttled; rerun later, and dedup means no rework.
@@ -127,7 +129,7 @@ Import backup restores it.
 
 | Symptom | Cause / fix |
 |---|---|
-| "Local MCP server unreachable" | The bridge isn't running — step 4 above |
+| Setup card: Monarch bridge "Not running" | The bridge isn't running — step 4 above |
 | `MCP initialize HTTP 400 … Invalid Origin` | The bridge doesn't know this extension's ID — the extensions page should show `efchglphphlccjofdnfjopohdmgdlopd`; if it doesn't, the manifest `key` was changed; re-run step 4 with `ALLY_CHECKS_EXTENSION_ID=<id>` |
 | Reconcile flags "in Monarch, but its MCP hides Plaid-connected accounts" | You're on the official Monarch connection; switch Settings to the local bridge (or migrate the Ally connection off Plaid in Monarch) |
 | `DCR failed: 403 … CSRF` connecting official Monarch | Fixed in current code (cookies are never sent); pull latest |
