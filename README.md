@@ -13,17 +13,35 @@ It runs client-side. Full check images never leave the browser tab; only the
 cropped payee strip is sent to the Claude API. Monarch writes go through a
 third-party bridge you run locally (see Dependencies).
 
-**Before you start.** Ally Bank only today. macOS only. Setup takes about 20
-minutes in Terminal: Homebrew, a Python bridge, and an unpacked extension.
-Capture is slow because Ally serves check images at about 1–2 minutes each
-and throttles; a few hundred checks means several sessions.
+## Who this is for
 
-**Other banks: beta testers wanted.** The capture step is the only
-bank-specific part, and Settings already has a bank selector. If you write
-checks from Chase, Bank of America, Wells Fargo, Schwab, or anyone else and
-can spend an hour testing a port against your own account,
-[open an issue](https://github.com/jkmaxwell/monarch-checks/issues) with the
-bank's name. [TODO.md](TODO.md) lists what a port needs.
+- You write paper checks from an **Ally Bank** checking account and track
+  them in **Monarch Money**.
+- You are **comfortable in the command line**: Homebrew, cloning repos,
+  running a Python tool, loading an unpacked extension. Setup takes about
+  20 minutes.
+- You have, or will create, an **Anthropic account** with API access. Payee
+  extraction uses Claude and costs a few cents per batch.
+- You are on **macOS** with a Chromium browser.
+- You are patient with slow capture: Ally serves check images at about
+  1–2 minutes each and throttles, so a few hundred checks takes several
+  sessions.
+
+## Who this is not for
+
+- **Other banks.** Only Ally works today. If you bank elsewhere, the capture
+  step would need a port for your bank's site. Beta testers and
+  contributors are welcome:
+  [open an issue](https://github.com/jkmaxwell/monarch-checks/issues) with
+  your bank's name, and see [TODO.md](TODO.md) for what a port needs.
+- **Other AI providers.** Extraction is Claude only. There is no OpenAI,
+  Gemini, or local-model option and none is planned.
+- **Anyone who wants an installer.** There is no app, no Web Store listing,
+  and no support for command-line problems. If Terminal is not your thing,
+  this is not your tool yet.
+- **Anyone who needs it to keep working.** Monarch writes go through a
+  third-party bridge that uses Monarch's unofficial API. It can break
+  without notice.
 
 ## Requirements
 
