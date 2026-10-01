@@ -5,7 +5,7 @@
 A browser extension that reads payees off Ally Bank check images and writes
 them to the matching Monarch Money transactions.
 
-Monarch imports every paper check as `Check Paid #1733` with no payee, so
+Monarch imports every paper check as `Check Paid #number` with no payee, so
 categorizing one means opening Ally, finding the check image, reading the name,
 switching back to Monarch, and typing it in. Per check. **After a one-time
 setup, a run is: log in to Ally, click Capture, spend a few minutes confirming
