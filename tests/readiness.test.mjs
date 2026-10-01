@@ -26,7 +26,7 @@ test('allyRow: null count is checking', () => {
 test('allyRow: zero tabs is bad with an Open fix naming the bank', () => {
   const r = allyRow(0, 'Ally Bank');
   assert.equal(r.state, 'bad');
-  assert.match(r.text, /transaction page/i);
+  assert.match(r.text, /not open.*transactions/i);
   assert.deepEqual(r.fix, { label: 'Open Ally Bank', action: 'open-bank' });
 });
 

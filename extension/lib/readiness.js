@@ -18,7 +18,7 @@ export function allyRow(tabCount, bankLabel) {
     ? { state: 'ok', text: 'Open', fix: null }
     : {
         state: 'bad',
-        text: 'Log in and open your checking account’s transaction page.',
+        text: 'Not open. Log in, then open the account’s transactions.',
         fix: { label: `Open ${bankLabel}`, action: 'open-bank' },
       };
 }

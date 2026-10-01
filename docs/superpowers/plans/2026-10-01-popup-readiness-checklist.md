@@ -80,7 +80,7 @@ test('allyRow: null count is checking', () => {
 test('allyRow: zero tabs is bad with an Open fix naming the bank', () => {
   const r = allyRow(0, 'Ally Bank');
   assert.equal(r.state, 'bad');
-  assert.match(r.text, /transaction page/i);
+  assert.match(r.text, /not open.*transactions/i);
   assert.deepEqual(r.fix, { label: 'Open Ally Bank', action: 'open-bank' });
 });
 
@@ -165,7 +165,7 @@ export function allyRow(tabCount, bankLabel) {
     ? { state: 'ok', text: 'Open', fix: null }
     : {
         state: 'bad',
-        text: 'Log in and open your checking account’s transaction page.',
+        text: 'Not open. Log in, then open the account’s transactions.',
         fix: { label: `Open ${bankLabel}`, action: 'open-bank' },
       };
 }
@@ -333,7 +333,7 @@ Append to `extension/dashboard/dashboard.css`:
 /* setup checklist */
 .checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .checks li { display: grid; grid-template-columns: 8px 104px 1fr auto; align-items: baseline; column-gap: 8px; font-size: 13px; }
-.checks .dot { width: 8px; height: 8px; border-radius: 50%; align-self: center; background: #a8a294; }
+.checks .dot { width: 8px; height: 8px; border-radius: 50%; align-self: start; margin-top: 5px; background: #a8a294; }
 .checks li[data-state="ok"] .dot { background: #2e9e5b; }
 .checks li[data-state="bad"] .dot { background: var(--accent); }
 .checks li[data-state="checking"] .dot { background: #a8a294; animation: breathe 1.8s ease-out infinite; }
