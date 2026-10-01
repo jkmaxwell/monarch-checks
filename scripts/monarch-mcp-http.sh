@@ -1,12 +1,12 @@
 #!/bin/sh
-# Serve robcerda/monarch-mcp-server over streamable HTTP for the Ally Checks
-# extension (its default is stdio, which a browser extension can't speak).
+# Serve robcerda/monarch-mcp-server over streamable HTTP for the Check Payee
+# to Monarch extension (its default is stdio, which a browser extension can't speak).
 #
 #   scripts/monarch-mcp-http.sh [port]
 #
 # The server rejects browser Origins it doesn't know (HTTP 400). The extension's
 # ID is pinned by the "key" in extension/manifest.json, so it is the same on
-# every install and is allowed by default. Set ALLY_CHECKS_EXTENSION_ID only if
+# every install and is allowed by default. Set MONARCH_CHECKS_EXTENSION_ID only if
 # you load a modified extension that has a different ID (chrome://extensions,
 # Dia: dia://extensions).
 #
@@ -24,7 +24,7 @@ if [ ! -d "$DIR" ]; then
   exit 1
 fi
 PORT="${1:-8642}"
-EXT_ID="${ALLY_CHECKS_EXTENSION_ID:-efchglphphlccjofdnfjopohdmgdlopd}"  # pinned by extension/manifest.json "key"
+EXT_ID="${MONARCH_CHECKS_EXTENSION_ID:-efchglphphlccjofdnfjopohdmgdlopd}"  # pinned by extension/manifest.json "key"
 set -- --allowed-origin "chrome-extension://$EXT_ID"
 exec uv run --directory "$DIR" --locked monarch-mcp-server \
   --transport http --host 127.0.0.1 --port "$PORT" "$@"

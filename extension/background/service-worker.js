@@ -10,7 +10,7 @@ import * as mcp from './mcp-client.js';
 import * as monarch from './monarch.js';
 import * as reconcile from './reconcile.js';
 
-chrome.runtime.onInstalled.addListener(() => console.log('Ally Checks installed'));
+chrome.runtime.onInstalled.addListener(() => console.log('Check Payee to Monarch installed'));
 
 // Reconcile runs entirely inside this worker, so a fresh worker means any run
 // marked active died with the old one (terminated mid-run). Clear it, or the
@@ -252,7 +252,7 @@ async function exportData() {
 // semantics, not merge) and re-populates the strip store.
 async function importData(snapshot) {
   if (!snapshot || snapshot.version !== 1 || !Array.isArray(snapshot.dataset)) {
-    throw new Error('Not an Ally Checks backup file.');
+    throw new Error('Not a Check Payee to Monarch backup file.');
   }
   await storage.set('dataset', snapshot.dataset);
   await storage.set('history', snapshot.history || { processed: [], newestCheckNumber: null });

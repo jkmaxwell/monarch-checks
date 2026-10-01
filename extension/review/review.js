@@ -190,8 +190,8 @@ function download(name, text, type) {
 }
 $('export').addEventListener('click', () => {
   const clean = records.map(({ extractError, ...r }) => r);
-  download('ally-checks-verified.csv', toCsv(clean), 'text/csv');
-  download('ally-checks-verified.json', JSON.stringify(clean, null, 2), 'application/json');
+  download('monarch-checks-verified.csv', toCsv(clean), 'text/csv');
+  download('monarch-checks-verified.json', JSON.stringify(clean, null, 2), 'application/json');
   $('status').textContent = `Exported ${clean.length} checks.`;
 });
 

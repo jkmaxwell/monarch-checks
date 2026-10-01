@@ -10,8 +10,20 @@ in-page → Claude vision reads the payee → review and correct in a table →
 reconcile writes the merchant and category to each matching Monarch transaction.
 
 It runs client-side. Full check images never leave the browser tab; only the
-cropped payee strip is sent to the Claude API. Monarch writes go through an MCP
-server you run locally.
+cropped payee strip is sent to the Claude API. Monarch writes go through a
+third-party bridge you run locally (see Dependencies).
+
+**Before you start.** Ally Bank only today. macOS only. Setup takes about 20
+minutes in Terminal: Homebrew, a Python bridge, and an unpacked extension.
+Capture is slow because Ally serves check images at about 1–2 minutes each
+and throttles; a few hundred checks means several sessions.
+
+**Other banks: beta testers wanted.** The capture step is the only
+bank-specific part, and Settings already has a bank selector. If you write
+checks from Chase, Bank of America, Wells Fargo, Schwab, or anyone else and
+can spend an hour testing a port against your own account,
+[open an issue](https://github.com/jkmaxwell/monarch-checks/issues) with the
+bank's name. [TODO.md](TODO.md) lists what a port needs.
 
 ## Requirements
 
@@ -28,9 +40,13 @@ server you run locally.
 - The extension has no dependencies: vanilla JavaScript, Manifest V3, no build
   step. It loads the Manrope font from Google Fonts; everything else is local.
 - [robcerda/monarch-mcp-server](https://github.com/robcerda/monarch-mcp-server)
-  (third-party) is the local bridge to Monarch. It uses your Monarch web
-  session, so it sees Plaid-connected accounts that Monarch's official MCP hides
-  (currently including Ally, which is why the bridge is the default). Its Python
+  is the local bridge to Monarch. It is a separate open-source project written
+  and maintained by Rob Cerda, not by this one; this repo only ships two shell
+  scripts that run it. It talks to Monarch's internal API using your web
+  session. That API is unofficial and undocumented, so the bridge, and with it
+  the reconcile step, can break whenever Monarch changes something. The upside
+  is that it sees Plaid-connected accounts (including Ally) that Monarch's
+  official MCP currently hides, which is why it is the default. Its Python
   dependencies are managed by `uv`.
 - The tools in `pipeline/`, `harness/`, and `src/` predate the extension and
   need Node 20+ and ImageMagick. Not required for normal use. See
@@ -95,7 +111,7 @@ Alternatively, clone this repo, `cd` into it, run `claude`, and paste:
    server's own `--transport http` mode) at login and restarts it if it exits;
    `--uninstall` removes it. To run it once in a terminal instead:
    `./scripts/monarch-mcp-http.sh`. If you changed the extension and its ID
-   differs, pass `ALLY_CHECKS_EXTENSION_ID=<id>` to either script.
+   differs, pass `MONARCH_CHECKS_EXTENSION_ID=<id>` to either script.
 
    It defaults to `~/dev/monarch-mcp-server`; set `MONARCH_MCP_DIR` only if your
    checkout is elsewhere. It listens on `http://127.0.0.1:8642/mcp`, localhost
@@ -121,19 +137,20 @@ Alternatively, clone this repo, `cd` into it, run `claude`, and paste:
 6. Reconcile to Monarch: assigns merchant and category to each matched
    transaction, verifying each write. Re-runs are idempotent.
 
-Back up after each session (Settings → Export backup). Browsers can drop
-unpacked extensions on updates (Dia has), which deletes all captured data.
-Import backup restores it.
+Back up after each session (Settings → Export backup). Removing or
+reinstalling an unpacked extension deletes everything it captured; Import
+backup restores it.
 
 ## Troubleshooting
 
 | Symptom | Cause / fix |
 |---|---|
+| Setup card shows a red row | Click the row's fix link. The card re-checks every 5 s, so it turns green on its own once fixed |
 | Setup card: Monarch bridge "Not running" | The bridge isn't running — step 4 above |
-| `MCP initialize HTTP 400 … Invalid Origin` | The bridge doesn't know this extension's ID — the extensions page should show `efchglphphlccjofdnfjopohdmgdlopd`; if it doesn't, the manifest `key` was changed; re-run step 4 with `ALLY_CHECKS_EXTENSION_ID=<id>` |
+| `MCP initialize HTTP 400 … Invalid Origin` | The bridge doesn't know this extension's ID — the extensions page should show `efchglphphlccjofdnfjopohdmgdlopd`; if it doesn't, the manifest `key` was changed; re-run step 4 with `MONARCH_CHECKS_EXTENSION_ID=<id>` |
 | Reconcile flags "in Monarch, but its MCP hides Plaid-connected accounts" | You're on the official Monarch connection; switch Settings to the local bridge (or migrate the Ally connection off Plaid in Monarch) |
 | `DCR failed: 403 … CSRF` connecting official Monarch | Fixed in current code (cookies are never sent); pull latest |
-| Extension vanished from the browser | The browser dropped it on an update — reload unpacked, re-enter the API key, Import backup |
+| Extension vanished from the browser | Some browsers drop unpacked extensions on updates (seen with Dia, July 2026). Reload unpacked, re-enter the API key, Import backup |
 | Capture says "images not posted yet" | The check is too recent — it's skipped and retried next run |
 | macOS keychain prompt when the bridge starts | Python reading the stored Monarch session — Always Allow |
 
@@ -143,6 +160,10 @@ Import backup restores it.
   transaction queries and merchant/category writes to Monarch (via the local
   bridge or OAuth'd official MCP). Nothing else. Full check images never leave
   the browser tab.
+- The local bridge is third-party code (Rob Cerda's monarch-mcp-server) that
+  holds a Monarch session in your keychain and uses Monarch's unofficial API.
+  Read its README before trusting it with your account; this project does not
+  audit it.
 - Where secrets live: Claude API key in the extension's local storage; Monarch
   session in the macOS keychain; official-mode OAuth tokens in extension
   storage. Nothing is committed to this repo; `downloads/`, `pipeline/out/`, and

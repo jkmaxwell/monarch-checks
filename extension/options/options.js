@@ -73,7 +73,7 @@ document.getElementById('export').addEventListener('click', async () => {
   const blob = new Blob([JSON.stringify(snap)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `ally-checks-backup-${snap.exportedAt.slice(0, 10)}.json`;
+  a.download = `monarch-checks-backup-${snap.exportedAt.slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
   backupStatus.textContent = `Exported ${snap.dataset.length} check(s) + ${Object.keys(snap.strips).length} strip(s).`;

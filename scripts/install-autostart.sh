@@ -6,7 +6,7 @@
 #   scripts/install-autostart.sh --uninstall  # stop + remove
 #
 # The extension's ID is pinned by extension/manifest.json, so no ID is needed.
-# Set ALLY_CHECKS_EXTENSION_ID only for a modified extension with a different
+# Set MONARCH_CHECKS_EXTENSION_ID only for a modified extension with a different
 # ID; it is baked into the agent, so re-run this if it changes.
 #
 # Logs: ~/Library/Logs/monarch-mcp-http.log
@@ -44,7 +44,7 @@ cat > "$PLIST" <<EOF
   <key>ProgramArguments</key><array><string>$SCRIPT</string></array>
   <key>EnvironmentVariables</key><dict>
     <key>PATH</key><string>$UV_DIR:/usr/bin:/bin:/usr/sbin:/sbin</string>
-${ALLY_CHECKS_EXTENSION_ID:+    <key>ALLY_CHECKS_EXTENSION_ID</key><string>$ALLY_CHECKS_EXTENSION_ID</string>
+${MONARCH_CHECKS_EXTENSION_ID:+    <key>MONARCH_CHECKS_EXTENSION_ID</key><string>$MONARCH_CHECKS_EXTENSION_ID</string>
 }    <key>MONARCH_MCP_DIR</key><string>${MONARCH_MCP_DIR:-$HOME/dev/monarch-mcp-server}</string>
   </dict>
   <key>RunAtLoad</key><true/>

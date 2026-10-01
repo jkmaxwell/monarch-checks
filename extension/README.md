@@ -8,14 +8,14 @@ Captures check images from Ally, crops the payee line in-page, extracts the
 recipient with Claude vision, lets you review/correct, and reconciles the
 results into Monarch via the official Monarch MCP. Entirely client-side.
 
-## Installing (Dia / any Chromium browser)
+## Installing (any Chromium browser)
 
 This extension is never packaged or published — it only runs as an **unpacked
 extension in developer mode**:
 
-1. Make sure you're in the right profile (in Dia: the **1-Personal** space —
-   that's where 1Password, Tampermonkey, etc. live).
-2. Open `dia://extensions` (or `chrome://extensions`).
+1. Use the browser profile you do your banking in (the one that is logged
+   into Ally).
+2. Open `chrome://extensions` (Dia: `dia://extensions`).
 3. Enable **Developer mode** (top right).
 4. Click **Load unpacked** and select this `extension/` directory.
 5. Open the extension's **Settings** (from the popup) and:
@@ -46,15 +46,12 @@ consent screen. Full merchant tooling (search/create/merge), but Plaid-connected
 accounts are invisible to it — only useful if/when the Ally connection is
 migrated off Plaid (`app.monarchmoney.com/accounts?reconnect=plaid_migration`).
 
-> ⚠️ **Dia can silently remove unpacked extensions on updates** — and Chromium
-> deletes an extension's `chrome.storage` and IndexedDB when it's removed, which
-> wipes every captured check and extracted recipient. This happened once already
-> (July 2026, Dia 1.39). Two habits protect you:
->
-> 1. **Export a backup after each session** — Settings → *Export backup*. The
->    JSON lands in `~/Downloads` and can be re-imported after a reinstall.
-> 2. If the toolbar icon disappears, don't panic: reload unpacked (steps above),
->    re-paste the API key, reconnect Monarch, and *Import backup*.
+> **Back up after each session** (Settings → *Export backup*). Chromium
+> deletes an extension's `chrome.storage` and IndexedDB when the extension is
+> removed, which wipes every captured check and extracted recipient. Some
+> browsers remove unpacked extensions on their own during updates (Dia did,
+> July 2026). If the toolbar icon disappears: reload unpacked, re-paste the
+> API key, reconnect Monarch, *Import backup*.
 
 ## Usage
 

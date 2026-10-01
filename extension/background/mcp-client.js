@@ -50,7 +50,7 @@ async function registerClient(asm) {
       grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
       scope: 'mcp:read mcp:write',
-      client_name: 'Ally Checks Extension',
+      client_name: 'Check Payee to Monarch',
     }),
   });
   if (!resp.ok) throw new Error('DCR failed: ' + resp.status + ' ' + (await resp.text()).slice(0, 200));
@@ -228,7 +228,7 @@ async function ensureSession() {
   await rpc('initialize', {
     protocolVersion: PROTOCOL_VERSION,
     capabilities: {},
-    clientInfo: { name: 'ally-checks-ext', version: '0.1.0' },
+    clientInfo: { name: 'monarch-checks', version: '0.1.0' },
   });
   await notify('notifications/initialized');
 }
