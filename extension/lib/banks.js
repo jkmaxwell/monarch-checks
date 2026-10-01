@@ -7,6 +7,7 @@ export const BANKS = {
   ally: {
     label: 'Ally Bank',
     tabMatch: 'https://secure.ally.com/*',
+    homeUrl: 'https://secure.ally.com/',
     captureScript: 'content/ally-capture.js',
   },
 };
