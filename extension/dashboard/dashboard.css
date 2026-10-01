@@ -203,7 +203,9 @@ button.dark:active { transform: translateY(1px); }
 }
 
 /* setup checklist */
-.checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.checks li:not(:last-child) { padding-bottom: 8px; }
+.checks li + li { padding-top: 8px; border-top: 1px solid var(--line); }
 .checks li { display: grid; grid-template-columns: 8px 104px 1fr auto; align-items: baseline; column-gap: 8px; font-size: 13px; }
 .checks .dot { width: 8px; height: 8px; border-radius: 50%; align-self: start; margin-top: 5px; background: #a8a294; }
 .checks li[data-state="ok"] .dot { background: #2e9e5b; }
